@@ -4,7 +4,14 @@ public class IBT extends Thread{
 	public IBT( List<URLHTMLTuple> BUL){
 		this.BUL=BUL;
 	}
-	int size = list.size();
+	public void run(){
+		if(BUL.size() ==  1000){
+			
+			
+		}
+
+	}
+
 
 
 	
