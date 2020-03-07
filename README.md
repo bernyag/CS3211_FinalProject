@@ -8,8 +8,16 @@ The presentation will be on Tue (Mar 10) 12:40 - 13:00
 * Present design decisions
 * Question to answer:
     1. What is your concurrency design for the URL crawler?
+
     2. How can your concurrency plan to improve the tool's efficiency?
+
     3. How do you avoid the potential concurrency bugs?
+
     4. How your distribute the tasks in your team?
+
+    Indexed URL Tree -> trie
+    Buffered URL List -> ArrayList of limited size (1000), storing only URLs
+    CT -> Retrieves URLs and puts them into BUL
+    
 
 
