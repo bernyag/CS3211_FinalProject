@@ -1,1 +1,3 @@
-.class
+*.class
+Test.java
+html_files

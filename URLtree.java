@@ -52,7 +52,13 @@ public class URLtree {
         currentNode.HTMLFilePath = urlString + ".html";
 
         // Create an HTML file
-        File f = new File(".\\html_files\\" + currentNode.HTMLFilePath);
+        // Check if a folder exists
+        File f = new File(".\\html_files\\");
+        if(!f.exists()){
+            f.mkdir();
+        }
+
+        f = new File(".\\html_files\\" + currentNode.HTMLFilePath);
 
         try {
             BufferedWriter bw = new BufferedWriter(new FileWriter(f));
@@ -65,7 +71,8 @@ public class URLtree {
     }
 
     // Returns true if key presents in trie, else false
-    public boolean search(String urlString) {
+    public boolean search(URLHTMLTuple website) {
+        String urlString = website.getURL();
         int length = urlString.length();
         char currentChar;
 
