@@ -1,8 +1,8 @@
-class URLHTMLTuple{
+class UrlHtmlTuple{
     private String URL;
     private String HTMLContent;
 
-    public URLHTMLTuple(String URL, String HTMLContent){
+    public UrlHtmlTuple(String URL, String HTMLContent){
         this.URL = URL;
         this.HTMLContent = HTMLContent;
     }
