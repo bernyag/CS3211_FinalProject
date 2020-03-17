@@ -1,4 +1,8 @@
+package thread;
 import java.util.*;
+import entity.*;
+
+import entity.URLHTMLTuple;
 public class IBT extends Thread{
 	private List<URLHTMLTuple> BUL;
 	public IBT( List<URLHTMLTuple> BUL){

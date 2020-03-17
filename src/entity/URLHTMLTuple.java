@@ -1,4 +1,5 @@
-class URLHTMLTuple{
+package entity;
+public class URLHTMLTuple{
     private String URL;
     private String HTMLContent;
 

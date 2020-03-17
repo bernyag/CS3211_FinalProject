@@ -1,3 +1,4 @@
+package thread;
 // Implementation of the crawling thread. The thread does the following: 
 // * Pick the top element of the buffer list
 // * 
