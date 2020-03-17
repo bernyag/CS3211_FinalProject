@@ -7,9 +7,9 @@ public class IBT extends Thread{
 	public void transfer(List<URLHTMLTuple> BUL){
 		for (URLHTMLTuple temp : BUL){
 			//synchronization needed
-			if(!IUT.search(temp)){//IUT is the global URLtree
-				IUT.insert(temp);
-			}
+			//if(!IUT.search(temp)){//IUT is the global URLtree
+			//	IUT.insert(temp);
+			//}
 			//synchronization end
 		}
 	}
