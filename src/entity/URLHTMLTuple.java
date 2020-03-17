@@ -1,3 +1,5 @@
+package entity;
+
 class UrlHtmlTuple{
     private String URL;
     private String HTMLContent;
