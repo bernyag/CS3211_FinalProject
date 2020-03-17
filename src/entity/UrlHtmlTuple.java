@@ -1,6 +1,6 @@
 package entity;
 
-class UrlHtmlTuple{
+public class UrlHtmlTuple{
     private String URL;
     private String HTMLContent;
 

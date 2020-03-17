@@ -1,8 +1,10 @@
+package threads;
 import java.util.*;
+import entity.*;
 
 // This will be our IUT
 
-class IndexBuilder implements Runnable {
+public class IndexBuilder implements Runnable {
 	private final List<UrlHtmlTuple> urlBuffer;
 	private final int MAX_CAPACITY;
 	private final UrlTree urlIndex;

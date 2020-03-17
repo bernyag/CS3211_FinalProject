@@ -1,7 +1,15 @@
 import java.io.BufferedReader;
+import java.io.File;
+
+import threads.*;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+
+import entity.UrlHtmlTuple;
+import entity.UrlTree;
+
+
 import java.util.*;
 
 public class WebCrawlerDriver {
@@ -18,7 +26,7 @@ public class WebCrawlerDriver {
 	// number of building threads
 	private static final int NO_OF_BUILDERS = 3;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws IOException {
 
 		// IUT data structure
 		UrlTree index = new UrlTree();
@@ -36,8 +44,9 @@ public class WebCrawlerDriver {
 		}
 
 		BufferedReader reader;
+
 		try {
-			reader = new BufferedReader(new FileReader("D:\\EclipseProjects\\Web Crawler\\bin\\url-example.txt"));
+			reader = new BufferedReader(new FileReader("./src/url-example.txt"));
 			String line = reader.readLine();
 			int line_no = 0;
 			while (line != null) {

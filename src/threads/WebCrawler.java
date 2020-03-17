@@ -1,3 +1,4 @@
+package threads;
 import java.util.*;
 
 import org.jsoup.Jsoup;
@@ -5,11 +6,13 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
+import entity.UrlHtmlTuple;
+
 import java.io.IOException;
 
 // This will be our crawling thread
 
-class WebCrawler implements Runnable {
+public class WebCrawler implements Runnable {
 	// BUL shared between two crawling threads and one index building thread
 	private final List<UrlHtmlTuple> urlBuffer;
 
