@@ -63,12 +63,15 @@ public class UrlTree {
 
 		// Create an HTML file
 		// Check if a folder exists
-		File f = new File(".\\html_files\\");
+		
+		File f = new File("."+ File.separator + "html_files"+ File.separator); 
+		System.out.println("outside");
 		if (!f.exists()) {
+			System.out.println("skapar mapp");
 			f.mkdir();
 		}
 
-		f = new File(".\\html_files\\" + currentNode.HTMLFilePath);
+		f = new File("." + File.separator + "html_files" + File.separator  + currentNode.HTMLFilePath); 
 
 		try {
 			BufferedWriter bw = new BufferedWriter(new FileWriter(f));

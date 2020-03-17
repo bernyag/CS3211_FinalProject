@@ -46,7 +46,7 @@ public class WebCrawlerDriver {
 		BufferedReader reader;
 
 		try {
-			reader = new BufferedReader(new FileReader("./src/url-example.txt"));
+			reader = new BufferedReader(new FileReader("." + File.separator + "src" + File.separator + "url-example.txt"));
 			String line = reader.readLine();
 			int line_no = 0;
 			while (line != null) {

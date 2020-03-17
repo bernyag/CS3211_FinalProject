@@ -6,3 +6,4 @@ html_files
 .project
 .settings/
 *.html
+.DS_Store
