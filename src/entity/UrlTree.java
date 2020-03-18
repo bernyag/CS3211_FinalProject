@@ -12,13 +12,11 @@ import java.io.*;
  *
  */
 public class UrlTree {
-	//private int docID;
 	public final URLTreeNode root; 	// Root of the Indexed URL Tree
 	ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
 
 	public UrlTree() {
-		//this.docID = 0;
 		this.root = new URLTreeNode();
 	}
 	
@@ -43,12 +41,12 @@ public class UrlTree {
 	
 
 
-	// If not present, inserts key into trie
-	// If the key is prefix of trie node, just marks leaf node
+	// TODO Bartek wrote: "If the key is prefix of trie node, just marks leaf node" waht does he mean? Is this the same as what I wrote?
 	/**
 	 * This method is used to insert a new element into the URLTree. It traverses
 	 * the tree, starting at the root node, until it reaches a leaf node or until 
-	 * the node represents the full URL. 
+	 * the node represents the full URL. In case of the latter, the corresponding node 
+	 * will be marked with an HTML file path
 	 * 
 	 * @param website: tuple to be inserted
 	 */
