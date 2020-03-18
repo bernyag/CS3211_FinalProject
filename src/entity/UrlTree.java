@@ -12,13 +12,13 @@ import java.io.*;
  *
  */
 public class UrlTree {
-	private int docID;
+	//private int docID;
 	public final URLTreeNode root; 	// Root of the Indexed URL Tree
 	ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
 
 
 	public UrlTree() {
-		this.docID = 0;
+		//this.docID = 0;
 		this.root = new URLTreeNode();
 	}
 	
@@ -54,7 +54,6 @@ public class UrlTree {
 	 */
 	public void insert(UrlHtmlTuple website) {
 		String urlString = website.getURL();
-		String htmlContent = website.getHTMLContent();
 		int length = urlString.length();
 		char currentChar;
 
@@ -143,6 +142,14 @@ public class UrlTree {
 		}
 
 		return (currentNode != null && currentNode.HTMLFilePath != null);
+	}
+	
+	/**
+	 * Converts the URLTree into a list. This list will
+	 * serve as the official output from the program. 
+	 */
+	public void toList() {
+		//TODO Implement once we know what format they want our output to be
 	}
 
 }
