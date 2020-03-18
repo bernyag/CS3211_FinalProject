@@ -2,8 +2,12 @@ package threads;
 import java.util.*;
 import entity.*;
 
-// This will be our IUT
-
+/**
+ * This class defines the index building threads which consume elements from an 
+ * associated buffer (which is shared with other IBTs) and puts them into the IUT.
+ * 
+ * @since 2020-03-18
+ */
 public class IndexBuilder implements Runnable {
 	private final List<UrlHtmlTuple> urlBuffer;
 	private final int MAX_CAPACITY;
@@ -14,7 +18,11 @@ public class IndexBuilder implements Runnable {
 		this.urlBuffer = sharedQueue;
 		this.MAX_CAPACITY = max_capacity;
 	}
-
+	
+	/** This method starts the Index building thread. 
+	 * It's task is to consume objects from the buffer and insert them 
+	 * into the URLIndexTree
+	 */
 	@Override
 	public void run() {
 		while (true) {
@@ -25,7 +33,15 @@ public class IndexBuilder implements Runnable {
 			}
 		}
 	}
-
+	
+	/**
+	 * This method tries to consume a pair from the associated buffer
+	 * (by consume we mean pop it off the stack and place it in the URLIndexTree).
+	 * The method is synchronized in order to avoid multi thread access to the 
+	 * shared buffer
+	 * 
+	 * @question Why do we have 2 blocks both outputting empty? Can't these be merged
+	 */
 	private void consume() throws InterruptedException {
 		synchronized (urlBuffer) {
 			while (urlBuffer.size() != MAX_CAPACITY) {

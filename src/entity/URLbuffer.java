@@ -3,6 +3,14 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+
+/**
+ * Currently not in use. An instance of the URLbuffer 
+ * is created directly in IndexBuilder.java
+ * 
+ * @deprecated yes
+ * @since 2020-03-18
+ */
 public class URLbuffer {
     private final String[] buffer;
     private final int capacity;
