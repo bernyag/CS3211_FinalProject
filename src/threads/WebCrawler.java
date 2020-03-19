@@ -1,14 +1,9 @@
 package threads;
 import java.util.*;
-
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.nodes.Element;
-import org.jsoup.select.Elements;
-
+import java.util.regex.*;
 import entity.UrlHtmlTuple;
-
-import java.io.IOException;
+import java.io.*;
+import java.net.*;
 
 
 /** 
@@ -80,7 +75,7 @@ public class WebCrawler implements Runnable {
 	 */
 	private String extractHtmlAndLinks(String url) {		
 		// try to fetch the document
-		Document doc = null;
+		/*Document doc = null;
 		try {
 			doc = Jsoup.connect(url).get();  //TODO use native Java for fetching to avoid .JAR file 
 		} catch (IOException e) {
@@ -99,8 +94,30 @@ public class WebCrawler implements Runnable {
 		}
 		
 		// return string representation of html
-		return html;
+		return html;*/
+		return url;
 	}
+
+
+    private String extractHtmlAndLinksNJ(String urlstring){
+        URL url = new URL(urlstring);
+        InputStream is = (InputStream)url.getContent();
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+        String line = null;
+        StringBuffer sb = new StringBuffer();
+        while((line = br.readLine()) != null){
+            sb.append(line);
+        }
+        String html = sb.toString();
+
+        Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
+        Matcher m = pattern.matcher(html);
+        
+        while (m.find()) {
+			taskStack.push(m.group());
+        }
+        return html;
+    }
 
 
 	/** 
