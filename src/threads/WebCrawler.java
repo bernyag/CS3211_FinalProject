@@ -1,14 +1,15 @@
 package threads;
+
 import java.util.*;
 import java.util.regex.*;
 import entity.UrlHtmlTuple;
 import java.io.*;
 import java.net.*;
 
-
-/** 
- * This class defines the crawling threads. The crawling threads have a personal stack
- * of URL:s that they read through. There are 2 CTs associated with every buffer.
+/**
+ * This class defines the crawling threads. The crawling threads have a personal
+ * stack of URL:s that they read through. There are 2 CTs associated with every
+ * buffer.
  *
  * @since 2020-03-18
  *
@@ -23,7 +24,8 @@ public class WebCrawler implements Runnable {
 	// stack storing URLs for this crawling thread to use
 	private final Stack<String> taskStack;
 
-	// TODO use the data structure of a buffer to limit the amount of arguments taken by the constructor
+	// TODO use the data structure of a buffer to limit the amount of arguments
+	// taken by the constructor
 	public WebCrawler(List<UrlHtmlTuple> sharedQueue, Stack<String> taskQueue, int size) {
 		this.urlBuffer = sharedQueue;
 		this.taskStack = taskQueue;
@@ -31,10 +33,10 @@ public class WebCrawler implements Runnable {
 	}
 
 	/**
-	 * consumes URLs from it's associated stack and fetches their associated HTML. 
-	 * Pushes the links in the HMTL onto the stack. Finally it pushes the scraped 
-	 * webpage onto the shared buffer.  
-	 *  
+	 * consumes URLs from it's associated stack and fetches their associated HTML.
+	 * Pushes the links in the HMTL onto the stack. Finally it pushes the scraped
+	 * webpage onto the shared buffer.
+	 * 
 	 */
 	@Override
 	public void run() {
@@ -43,18 +45,20 @@ public class WebCrawler implements Runnable {
 				if (!taskStack.isEmpty()) {
 					// get a URL to work with
 					String nextURL = taskStack.pop();
-					//System.out.println(nextURL);
-					
+					// System.out.println(nextURL);
+
 					// get html from this link
-					// TODO could we run into errors when we try to extract the link? In that case we need exception handlings
-					String html = extractHtmlAndLinks(nextURL);
-					
+					// TODO could we run into errors when we try to extract the link? In that case
+					// we need exception handlings
+					String html = extractHtmlAndLinksNJ(nextURL);
+
 					// if jsoup failed, carry on to the next link
-					if(html == null) continue;
-					
+					if (html == null)
+						continue;
+
 					// create a tuple to put in the BUL
 					UrlHtmlTuple pair = new UrlHtmlTuple(nextURL, html);
-					
+
 					// put the object into the BUL
 					produce(pair);
 				}
@@ -63,51 +67,59 @@ public class WebCrawler implements Runnable {
 			}
 		}
 	}
-	
-	
+
 	/**
-	 * Goes to the webpage of  the provided URL and fetches the HTML data. Looks 
+	 * Goes to the webpage of the provided URL and fetches the HTML data. Looks
 	 * through the HTML to find contained links and pushes these onto the stack
-	 * associated with the thread. 
+	 * associated with the thread.
 	 * 
 	 * @param url
 	 * @return
 	 */
-	private String extractHtmlAndLinks(String url) {		
+	private String extractHtmlAndLinks(String url) {
 		// try to fetch the document
-		/*Document doc = null;
-		try {
-			doc = Jsoup.connect(url).get();  //TODO use native Java for fetching to avoid .JAR file 
-		} catch (IOException e) {
-			return null;
-		}
-
-		// parse HTML into a string
-		String html = doc.toString();
-
-		// get the links from the website
-		Elements links = doc.select("a[href]");
-
-		// push these links onto the crawlers associated stack 
-		for (Element link : links) {
-			taskStack.push(link.attr("abs:href").toString());
-		}
-		
-		// return string representation of html
-		return html;*/
+		/*
+		 * Document doc = null; try { doc = Jsoup.connect(url).get(); //TODO use native
+		 * Java for fetching to avoid .JAR file } catch (IOException e) { return null; }
+		 * 
+		 * // parse HTML into a string String html = doc.toString();
+		 * 
+		 * // get the links from the website Elements links = doc.select("a[href]");
+		 * 
+		 * // push these links onto the crawlers associated stack for (Element link :
+		 * links) { taskStack.push(link.attr("abs:href").toString()); }
+		 * 
+		 * // return string representation of html return html;
+		 */
 		return url;
 	}
 
-
-    private String extractHtmlAndLinksNJ(String urlstring){
-        URL url = new URL(urlstring);
-        InputStream is = (InputStream)url.getContent();
+	private String extractHtmlAndLinksNJ(String urlstring) {
+		URL url = null;
+		try {
+			url = new URL(urlstring);
+		} catch (MalformedURLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		InputStream is = null;
+		try {
+			is = (InputStream) url.getContent();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
         BufferedReader br = new BufferedReader(new InputStreamReader(is));
         String line = null;
-        StringBuffer sb = new StringBuffer();
-        while((line = br.readLine()) != null){
-            sb.append(line);
-        }
+		StringBuffer sb = new StringBuffer();
+		try {
+			while((line = br.readLine()) != null){
+				sb.append(line);
+			}
+		} catch (Exception e) {
+			//TODO: handle exception
+		}
+  
         String html = sb.toString();
 
         Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
