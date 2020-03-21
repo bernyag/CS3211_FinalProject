@@ -2,7 +2,8 @@ package threads;
 
 import java.util.*;
 import java.util.regex.*;
-import entity.UrlHtmlTuple;
+import entity.UrlTuple;
+
 import java.io.*;
 import java.net.*;
 
@@ -16,7 +17,7 @@ import java.net.*;
  */
 public class WebCrawler implements Runnable {
 	// BUL shared between two crawling threads and one index building thread
-	private final List<UrlHtmlTuple> urlBuffer;
+	private final List<UrlTuple> urlBuffer;
 
 	// capacity of the above list
 	private final int MAX_CAPACITY;
@@ -26,7 +27,7 @@ public class WebCrawler implements Runnable {
 
 	// TODO use the data structure of a buffer to limit the amount of arguments
 	// taken by the constructor
-	public WebCrawler(List<UrlHtmlTuple> sharedQueue, Stack<String> taskQueue, int size) {
+	public WebCrawler(List<UrlTuple> sharedQueue, Stack<String> taskQueue, int size) {
 		this.urlBuffer = sharedQueue;
 		this.taskStack = taskQueue;
 		this.MAX_CAPACITY = size;
@@ -50,14 +51,14 @@ public class WebCrawler implements Runnable {
 					// get html from this link
 					// TODO could we run into errors when we try to extract the link? In that case
 					// we need exception handlings
-					String html = extractHtmlAndLinksNJ(nextURL);
+					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
 
 					// if jsoup failed, carry on to the next link
-					if (html == null)
+					if (urlsFound == null)
 						continue;
 
 					// create a tuple to put in the BUL
-					UrlHtmlTuple pair = new UrlHtmlTuple(nextURL, html);
+					UrlTuple pair = new UrlTuple(nextURL, urlsFound);
 
 					// put the object into the BUL
 					produce(pair);
@@ -76,25 +77,7 @@ public class WebCrawler implements Runnable {
 	 * @param url
 	 * @return
 	 */
-	private String extractHtmlAndLinks(String url) {
-		// try to fetch the document
-		/*
-		 * Document doc = null; try { doc = Jsoup.connect(url).get(); //TODO use native
-		 * Java for fetching to avoid .JAR file } catch (IOException e) { return null; }
-		 * 
-		 * // parse HTML into a string String html = doc.toString();
-		 * 
-		 * // get the links from the website Elements links = doc.select("a[href]");
-		 * 
-		 * // push these links onto the crawlers associated stack for (Element link :
-		 * links) { taskStack.push(link.attr("abs:href").toString()); }
-		 * 
-		 * // return string representation of html return html;
-		 */
-		return url;
-	}
-
-	private String extractHtmlAndLinksNJ(String urlstring) {
+	private ArrayList<String> extractHtmlAndLinks(String urlstring) {
 		URL url = null;
 		try {
 			url = new URL(urlstring);
@@ -106,9 +89,11 @@ public class WebCrawler implements Runnable {
 		try {
 			is = (InputStream) url.getContent();
 		} catch (IOException e) {
+			return null;
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
+
         BufferedReader br = new BufferedReader(new InputStreamReader(is));
         String line = null;
 		StringBuffer sb = new StringBuffer();
@@ -123,12 +108,17 @@ public class WebCrawler implements Runnable {
         String html = sb.toString();
 
         Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
-        Matcher m = pattern.matcher(html);
+		Matcher m = pattern.matcher(html);
+		
+		ArrayList<String> foundURLs = new ArrayList<>();
         
         while (m.find()) {
-			taskStack.push(m.group());
-        }
-        return html;
+			String found = m.group();
+			taskStack.push(found);
+			foundURLs.add(found);
+		}
+		
+        return foundURLs;
     }
 
 
@@ -139,7 +129,7 @@ public class WebCrawler implements Runnable {
 	 * @param pair
 	 * @throws InterruptedException
 	 */
-	private void produce(UrlHtmlTuple pair) throws InterruptedException {
+	private void produce(UrlTuple pair) throws InterruptedException {
 		synchronized (urlBuffer) {
 
 			// check the blocking condition

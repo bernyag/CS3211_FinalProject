@@ -1,65 +1,61 @@
 package entity;
+
 import java.util.*;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.io.*;
 
 /**
- * This class defines the URLTree. The tree is alphabetically indexed (wrt the URLs), 
- * meaning that the children share part of its parents URL. 
+ * This class defines the URLTree. The tree is alphabetically indexed (wrt the
+ * URLs), meaning that the children share part of its parents URL.
  * 
  * @since 2020-03-18
  *
  */
 public class UrlTree {
-	public final URLTreeNode root; 	// Root of the Indexed URL Tree
-	ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-
+	public final URLTreeNode root; // Root of the Indexed URL Tree
 
 	public UrlTree() {
 		this.root = new URLTreeNode();
 	}
-	
+
 	/**
 	 * This nested class defines the nodes of the tree. Each node contains a HashMap
-	 * from Characters to nodes. This is how the mapping from parent to children
-	 * is represented. Each node also contains an HTMLFilePath. However, this will
-	 * only have a value in case the node is a leaf (if it's not a leaf the node is not
+	 * from Characters to nodes. This is how the mapping from parent to children is
+	 * represented. Each node also contains an HTMLFilePath. However, this will only
+	 * have a value in case the node is a leaf (if it's not a leaf the node is not
 	 * associated with a unique URL).
 	 * 
 	 * @since 2020-03-18
 	 */
-	
+
 	private class URLTreeNode {
 		// HashMap mapping characters to the children nodes
 		HashMap<Character, URLTreeNode> children = new HashMap<>();
 
-		// This string will be set when the string from root up to the specific
+		// This set will be set when the string from root up to the specific
 		// URLTreeNode is a valid, observed URL
-		String HTMLFilePath = null;
+		HashSet<String> urls = null;
 	};
-	
 
-
-	// TODO Bartek wrote: "If the key is prefix of trie node, just marks leaf node" waht does he mean? Is this the same as what I wrote?
 	/**
 	 * This method is used to insert a new element into the URLTree. It traverses
-	 * the tree, starting at the root node, until it reaches a leaf node or until 
-	 * the node represents the full URL. In case of the latter, the corresponding node 
-	 * will be marked with an HTML file path
+	 * the tree, starting at the root node, until it reaches a leaf node or until
+	 * the node represents the full URL. In case of the latter, the corresponding
+	 * node will be marked with an HTML file path
 	 * 
 	 * @param website: tuple to be inserted
 	 */
-	public void insert(UrlHtmlTuple website) {
-		String urlString = website.getURL();
-		int length = urlString.length();
+	public void insert(UrlTuple urlTuple) {
+		String oringinalUrl = urlTuple.getURL();
+		int length = oringinalUrl.length();
+
+		HashSet<String> foundlUrls = urlTuple.getFoundUrls();
+
 		char currentChar;
 
 		URLTreeNode currentNode = root;
 
-		// traverse through all characters in the URL string 
+		// traverse through all characters in the URL string
 		for (int i = 0; i < length; i++) {
-			currentChar = urlString.charAt(i);
+			currentChar = oringinalUrl.charAt(i);
 
 			if (!currentNode.children.containsKey(currentChar)) {
 				// Create a new node
@@ -67,8 +63,7 @@ public class UrlTree {
 
 				// Put the node into the tree
 				currentNode.children.put(currentChar, newNode);
-				
-				//TODO break?
+
 			}
 
 			// Move down the tree
@@ -76,53 +71,20 @@ public class UrlTree {
 		}
 
 		// Maybe we have already created such HTML file
-		if (currentNode.HTMLFilePath == null) {
-			saveUrl(website);
+		if (currentNode.urls == null) {
+			currentNode.urls = foundlUrls;
 		}
 	}
-	
-	//TODO Finish implementation
-	/**
-	 * Helper function to insert(). It creates appropriate folders if needed and saves
-	 * the tuple to the file system. 
-	 * @param website: tuple to be saved
-	 */
-	private void saveUrl(UrlHtmlTuple website) {
-		
-	
-		// Save the URL string
-		String htmlFilePath = ((int)(Math.random() * 100000)) + ".html";
-
-		// Create an HTML file
-		// Check if a folder exists
-		
-		File f = new File("."+ File.separator + "html_files"+ File.separator); 
-		if (!f.exists()) {
-			f.mkdir();
-		}
-
-		f = new File("." + File.separator + "html_files" + File.separator  + htmlFilePath); 
-
-		try {
-			BufferedWriter bw = new BufferedWriter(new FileWriter(f));
-			bw.write(website.getHTMLContent());
-			bw.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-	}
-
 
 	/**
-	 * Searches through the URLTree for the given element. Returns true 
-	 * if the element is already in the tree. Returns false otherwise
+	 * Searches through the URLTree for the given element. Returns true if the
+	 * element is already in the tree. Returns false otherwise
 	 * 
 	 * @param website
 	 * @return
 	 */
-	public boolean search(UrlHtmlTuple website) {
-		
+	public boolean search(UrlTuple website) {
+
 		String urlString = website.getURL();
 		int length = urlString.length();
 		char currentChar;
@@ -139,15 +101,32 @@ public class UrlTree {
 			currentNode = currentNode.children.get(currentChar);
 		}
 
-		return (currentNode != null && currentNode.HTMLFilePath != null);
-	}
-	
-	/**
-	 * Converts the URLTree into a list. This list will
-	 * serve as the official output from the program. 
-	 */
-	public void toList() {
-		//TODO Implement once we know what format they want our output to be
+		return (currentNode != null && currentNode.urls != null);
 	}
 
+	/**
+	 * Gets all the urls (and their children) fromn the trie
+	 */
+	public HashMap<String,List<String>> getResult() {
+
+		HashMap<String,List<String>> result = new HashMap<>();
+
+		for(Character c : root.children.keySet()){
+			getResult(result, "" + c, root.children.get(c));
+		}
+
+		return result;
+	}
+
+	private void getResult(HashMap<String,List<String>> map, String word, URLTreeNode node){
+		if(node.urls != null){
+			List<String> foundUrls = new LinkedList<>();
+			foundUrls.addAll(node.urls);
+			map.put(word, foundUrls);
+		}
+
+		for (Character c : node.children.keySet()){
+			getResult(map, word + c, node.children.get(c));
+		}
+	}
 }

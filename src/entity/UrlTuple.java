@@ -1,5 +1,7 @@
 package entity;
 
+import java.util.Collection;
+import java.util.HashSet;
 
 /**
  * Represents the elements we acquire. Each element is a tuple consisting of a URL tag
@@ -9,20 +11,20 @@ package entity;
  * @since 2020-03-18
  *
  */
-public class UrlHtmlTuple{
+public class UrlTuple{
     private String URL;
-    private String HTMLContent;
+    private HashSet<String> foundURLs = new HashSet<>();
 
-    public UrlHtmlTuple(String URL, String HTMLContent){
+    public UrlTuple(String URL, Collection<String> foundURLs){
         this.URL = URL;
-        this.HTMLContent = HTMLContent;
+        this.foundURLs.addAll(foundURLs);
     }
 
     public String getURL(){
         return URL;
     }
 
-    public String getHTMLContent(){
-        return HTMLContent;
+    public HashSet<String> getFoundUrls(){
+        return foundURLs;
     }
 }

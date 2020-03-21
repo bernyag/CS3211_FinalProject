@@ -6,7 +6,7 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 
-import entity.UrlHtmlTuple;
+import entity.UrlTuple;
 import entity.UrlTree;
 
 
@@ -32,9 +32,9 @@ public class WebCrawlerDriver {
 		UrlTree index = new UrlTree();
 
 		// create the buffers
-		ArrayList<ArrayList<UrlHtmlTuple>> buffers = new ArrayList<>();
+		ArrayList<ArrayList<UrlTuple>> buffers = new ArrayList<>();
 		for (int i = 0; i < NO_OF_BUFFERS; i++) {
-			buffers.add(new ArrayList<UrlHtmlTuple>());
+			buffers.add(new ArrayList<UrlTuple>());
 		}
 
 		// split the docs of url seeds
@@ -46,7 +46,7 @@ public class WebCrawlerDriver {
 		BufferedReader reader;
 
 		try {
-			reader = new BufferedReader(new FileReader("." + File.separator + "src" + File.separator + "url-example.txt"));
+			reader = new BufferedReader(new FileReader("url-example.txt"));
 			String line = reader.readLine();
 			int line_no = 0;
 			while (line != null) {
@@ -66,7 +66,7 @@ public class WebCrawlerDriver {
 		// create the crawlers
 		Thread[] crawlers = new Thread[NO_OF_CRAWLERS];
 		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
-			ArrayList<UrlHtmlTuple> buffer = buffers.get(i / 2);
+			ArrayList<UrlTuple> buffer = buffers.get(i / 2);
 			Stack<String> taskStack = new Stack<>();
 			ArrayList<String> intialURLs = seeds.get(i);
 			for (int j = 0; j < intialURLs.size(); j++) {
@@ -80,7 +80,7 @@ public class WebCrawlerDriver {
 		// create the builders
 		Thread[] builders = new Thread[NO_OF_BUILDERS];
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
-			ArrayList<UrlHtmlTuple> buffer = buffers.get(i);
+			ArrayList<UrlTuple> buffer = buffers.get(i);
 			builders[i] = new Thread(new IndexBuilder(buffer, index, MAX_CAPACITY));
 			builders[i].start();
 
