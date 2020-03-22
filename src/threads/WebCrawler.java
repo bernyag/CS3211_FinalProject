@@ -30,8 +30,8 @@ public class WebCrawler implements Runnable {
 
 	// TODO use the data structure of a buffer to limit the amount of arguments
 	// taken by the constructor
-	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size, final long timeToLive,
-			final TimeUnit timeUnit) {
+	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size,
+			final long timeToLive, final TimeUnit timeUnit) {
 		this.urlBuffer = sharedQueue;
 		this.taskStack = taskQueue;
 		this.MAX_CAPACITY = size;
@@ -49,7 +49,7 @@ public class WebCrawler implements Runnable {
 		while (timeToLive > System.nanoTime()) {
 			try {
 				if (!taskStack.isEmpty()) {
-					
+
 					// get a URL to work with
 
 					String nextURL = taskStack.pop();
@@ -58,11 +58,11 @@ public class WebCrawler implements Runnable {
 					// get html from this link
 					// TODO could we run into errors when we try to extract the link? In that case
 					// we need exception handlings
-					if(Thread.currentThread().getName().equals("Thread-4")){
+					if (Thread.currentThread().getName().equals("Thread-4")) {
 						System.out.println("THREAD 4 before");
 					}
 					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
-					if(Thread.currentThread().getName().equals("Thread-4")){
+					if (Thread.currentThread().getName().equals("Thread-4")) {
 						System.out.println("THREAD 4 after");
 					}
 					// if jsoup failed, carry on to the next link
@@ -96,14 +96,39 @@ public class WebCrawler implements Runnable {
 		try {
 			url = new URL(urlstring);
 		} catch (final MalformedURLException e) {
+			if (Thread.currentThread().getName().equals("Thread-4")) {
+				System.out.println("Malformed??");
+			}
 			// TODO Auto-generated catch block
 		}
 
+		URLConnection con = null;
+		try {
+			con = url.openConnection();
+		} catch (Exception e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		con.setConnectTimeout(10000);
+		con.setReadTimeout(10000);
+
+		if(Thread.currentThread().getName().equals("Thread-4")){
+			System.out.println("Just before IS??");
+		}
 		InputStream is = null;
 		try {
-			is = (InputStream) url.getContent();
+			if(Thread.currentThread().getName().equals("Thread-4")){
+				System.out.println("try beforeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee??");
+			}
+			is = con.getInputStream();
+			if(Thread.currentThread().getName().equals("Thread-4")){
+				System.out.println("try afterrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr??");
+			}
 		} catch (final Exception e) {
 			System.out.println("got classcastexeption " + Thread.currentThread().getName());
+			if(Thread.currentThread().getName().equals("Thread-4")){
+				System.out.println("catchhh??");
+			}
 			return null;
 		}
 
