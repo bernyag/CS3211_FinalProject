@@ -58,8 +58,13 @@ public class WebCrawler implements Runnable {
 					// get html from this link
 					// TODO could we run into errors when we try to extract the link? In that case
 					// we need exception handlings
+					if(Thread.currentThread().getName().equals("Thread-4")){
+						System.out.println("THREAD 4 before");
+					}
 					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
-
+					if(Thread.currentThread().getName().equals("Thread-4")){
+						System.out.println("THREAD 4 after");
+					}
 					// if jsoup failed, carry on to the next link
 					if (urlsFound == null)
 						continue;
@@ -93,12 +98,17 @@ public class WebCrawler implements Runnable {
 		} catch (final MalformedURLException e) {
 			// TODO Auto-generated catch block
 		}
+
 		InputStream is = null;
 		try {
 			is = (InputStream) url.getContent();
 		} catch (final Exception e) {
 			System.out.println("got classcastexeption " + Thread.currentThread().getName());
 			return null;
+		}
+
+		if(Thread.currentThread().getName().equals("Thread-4")){
+			System.out.println("THREAD 4 -------- AFTER INPUT STREAM");
 		}
 
 		final BufferedReader br = new BufferedReader(new InputStreamReader(is));
