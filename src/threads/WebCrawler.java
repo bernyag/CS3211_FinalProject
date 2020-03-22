@@ -1,6 +1,7 @@
 package threads;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.*;
 import entity.UrlTuple;
 
@@ -25,12 +26,16 @@ public class WebCrawler implements Runnable {
 	// stack storing URLs for this crawling thread to use
 	private final Stack<String> taskStack;
 
+	private final long timeToLive;
+
 	// TODO use the data structure of a buffer to limit the amount of arguments
 	// taken by the constructor
-	public WebCrawler(List<UrlTuple> sharedQueue, Stack<String> taskQueue, int size) {
+	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size, final long timeToLive,
+			final TimeUnit timeUnit) {
 		this.urlBuffer = sharedQueue;
 		this.taskStack = taskQueue;
 		this.MAX_CAPACITY = size;
+		this.timeToLive = System.nanoTime() + timeUnit.toNanos(timeToLive);
 	}
 
 	/**
@@ -41,10 +46,12 @@ public class WebCrawler implements Runnable {
 	 */
 	@Override
 	public void run() {
-		while (true) {
+		while (timeToLive > System.nanoTime()) {
 			try {
 				if (!taskStack.isEmpty()) {
+					
 					// get a URL to work with
+
 					String nextURL = taskStack.pop();
 					// System.out.println(nextURL);
 
@@ -63,10 +70,12 @@ public class WebCrawler implements Runnable {
 					// put the object into the BUL
 					produce(pair);
 				}
-			} catch (InterruptedException ex) {
+			} catch (final InterruptedException ex) {
 				ex.printStackTrace();
 			}
 		}
+		System.out.println("Thread " + Thread.currentThread().getName() + " has finished!");
+
 	}
 
 	/**
@@ -77,78 +86,70 @@ public class WebCrawler implements Runnable {
 	 * @param url
 	 * @return
 	 */
-	private ArrayList<String> extractHtmlAndLinks(String urlstring) {
+	private ArrayList<String> extractHtmlAndLinks(final String urlstring) {
 		URL url = null;
 		try {
 			url = new URL(urlstring);
-		} catch (MalformedURLException e) {
+		} catch (final MalformedURLException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 		InputStream is = null;
 		try {
 			is = (InputStream) url.getContent();
-		} catch (IOException e) {
+		} catch (final Exception e) {
+			System.out.println("got classcastexeption " + Thread.currentThread().getName());
 			return null;
-			// TODO Auto-generated catch block
-			//e.printStackTrace();
 		}
 
-        BufferedReader br = new BufferedReader(new InputStreamReader(is));
-        String line = null;
-		StringBuffer sb = new StringBuffer();
+		final BufferedReader br = new BufferedReader(new InputStreamReader(is));
+		String line = null;
+		final StringBuffer sb = new StringBuffer();
 		try {
-			while((line = br.readLine()) != null){
+			while ((line = br.readLine()) != null) {
 				sb.append(line);
 			}
-		} catch (Exception e) {
-			//TODO: handle exception
+		} catch (final Exception e) {
+			System.out.println("Exception 2");
 		}
-  
-        String html = sb.toString();
 
-        Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
-		Matcher m = pattern.matcher(html);
-		
-		ArrayList<String> foundURLs = new ArrayList<>();
-        
-        while (m.find()) {
-			String found = m.group();
+		final String html = sb.toString();
+
+		final Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
+		final Matcher m = pattern.matcher(html);
+
+		final ArrayList<String> foundURLs = new ArrayList<>();
+
+		while (m.find()) {
+			final String found = m.group();
 			taskStack.push(found);
 			foundURLs.add(found);
 		}
-		
-        return foundURLs;
-    }
 
+		return foundURLs;
+	}
 
-	/** 
-	 * Puts the webpage-tuple into the buffer. If the buffer is full the 
-	 * tread will have to wait until it's empty. 
-	 *  
+	/**
+	 * Puts the webpage-tuple into the buffer. If the buffer is full the tread will
+	 * have to wait until it's empty.
+	 * 
 	 * @param pair
 	 * @throws InterruptedException
 	 */
-	private void produce(UrlTuple pair) throws InterruptedException {
+	private void produce(final UrlTuple pair) throws InterruptedException {
 		synchronized (urlBuffer) {
 
 			// check the blocking condition
 			while (urlBuffer.size() == MAX_CAPACITY) {
-				//System.out.println("Queue is full " + Thread.currentThread().getName() + " is waiting , size: " + urlBuffer.size());
 				urlBuffer.wait();
 			}
-			
-			// TODO don't we need to syncronize this operation? We could potentially add 2elements to buffer at the same time
-			Thread.sleep(1000);
+
+			if (timeToLive < System.nanoTime()) {
+				urlBuffer.notifyAll();
+				return;
+			}
+
 			urlBuffer.add(pair);
 			System.out.println("Produced a url-html pair by thread " + Thread.currentThread().getName());
-
-			// check blocking condition again
-			while (urlBuffer.size() == MAX_CAPACITY) {
-				//System.out.println("Queue is full " + Thread.currentThread().getName() + " is waiting , size: " + urlBuffer.size());
-				urlBuffer.notifyAll();
-				urlBuffer.wait();
-			}
 
 			urlBuffer.notifyAll();
 
