@@ -1,6 +1,7 @@
 package threads;
 
 import java.util.*;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.*;
 import entity.UrlTuple;
@@ -24,18 +25,21 @@ public class WebCrawler implements Runnable {
 	private final int MAX_CAPACITY;
 
 	// stack storing URLs for this crawling thread to use
-	private final Stack<String> taskStack;
+	private final Stack<String> TASK_STACK;
 
-	private final long timeToLive;
+	// how long the thread will live
+	private final long TIME_TO_LIVE;
 
-	// TODO use the data structure of a buffer to limit the amount of arguments
-	// taken by the constructor
+	// barrier to wait for the threads
+	private final CyclicBarrier BARRIER;
+
 	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size,
-			final long timeToLive, final TimeUnit timeUnit) {
+			final long timeToLive, final TimeUnit timeUnit, CyclicBarrier barrier) {
 		this.urlBuffer = sharedQueue;
-		this.taskStack = taskQueue;
+		this.TASK_STACK = taskQueue;
 		this.MAX_CAPACITY = size;
-		this.timeToLive = System.nanoTime() + timeUnit.toNanos(timeToLive);
+		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
+		this.BARRIER = barrier;
 	}
 
 	/**
@@ -46,26 +50,15 @@ public class WebCrawler implements Runnable {
 	 */
 	@Override
 	public void run() {
-		while (timeToLive > System.nanoTime()) {
+		while (TIME_TO_LIVE > System.nanoTime()) {
 			try {
-				if (!taskStack.isEmpty()) {
+				if (!TASK_STACK.isEmpty()) {
 
 					// get a URL to work with
+					String nextURL = TASK_STACK.pop();
 
-					String nextURL = taskStack.pop();
-					// System.out.println(nextURL);
-
-					// get html from this link
-					// TODO could we run into errors when we try to extract the link? In that case
-					// we need exception handlings
-					if (Thread.currentThread().getName().equals("Thread-4")) {
-						System.out.println("THREAD 4 before");
-					}
 					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
-					if (Thread.currentThread().getName().equals("Thread-4")) {
-						System.out.println("THREAD 4 after");
-					}
-					// if jsoup failed, carry on to the next link
+
 					if (urlsFound == null)
 						continue;
 
@@ -74,12 +67,21 @@ public class WebCrawler implements Runnable {
 
 					// put the object into the BUL
 					produce(pair);
+				} else {
+					System.out.println(Thread.currentThread().getName() + " has nothing to do!");
 				}
 			} catch (final InterruptedException ex) {
 				ex.printStackTrace();
 			}
 		}
-		System.out.println("Thread " + Thread.currentThread().getName() + " has finished!");
+
+		try {
+			BARRIER.await();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+
+		System.out.println(Thread.currentThread().getName() + " has finished!");
 
 	}
 
@@ -96,44 +98,24 @@ public class WebCrawler implements Runnable {
 		try {
 			url = new URL(urlstring);
 		} catch (final MalformedURLException e) {
-			if (Thread.currentThread().getName().equals("Thread-4")) {
-				System.out.println("Malformed??");
-			}
-			// TODO Auto-generated catch block
+			// Do nothing
 		}
 
 		URLConnection con = null;
 		try {
 			con = url.openConnection();
 		} catch (Exception e1) {
-			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
+
 		con.setConnectTimeout(10000);
 		con.setReadTimeout(10000);
 
-		if(Thread.currentThread().getName().equals("Thread-4")){
-			System.out.println("Just before IS??");
-		}
 		InputStream is = null;
 		try {
-			if(Thread.currentThread().getName().equals("Thread-4")){
-				System.out.println("try beforeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee??");
-			}
 			is = con.getInputStream();
-			if(Thread.currentThread().getName().equals("Thread-4")){
-				System.out.println("try afterrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr??");
-			}
 		} catch (final Exception e) {
-			System.out.println("got classcastexeption " + Thread.currentThread().getName());
-			if(Thread.currentThread().getName().equals("Thread-4")){
-				System.out.println("catchhh??");
-			}
 			return null;
-		}
-
-		if(Thread.currentThread().getName().equals("Thread-4")){
-			System.out.println("THREAD 4 -------- AFTER INPUT STREAM");
 		}
 
 		final BufferedReader br = new BufferedReader(new InputStreamReader(is));
@@ -144,19 +126,20 @@ public class WebCrawler implements Runnable {
 				sb.append(line);
 			}
 		} catch (final Exception e) {
-			System.out.println("Exception 2");
+			// Do nothing
 		}
 
 		final String html = sb.toString();
 
-		final Pattern pattern = Pattern.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
+		final Pattern pattern = Pattern
+				.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
 		final Matcher m = pattern.matcher(html);
 
 		final ArrayList<String> foundURLs = new ArrayList<>();
 
 		while (m.find()) {
 			final String found = m.group();
-			taskStack.push(found);
+			TASK_STACK.push(found);
 			foundURLs.add(found);
 		}
 
@@ -178,7 +161,7 @@ public class WebCrawler implements Runnable {
 				urlBuffer.wait();
 			}
 
-			if (timeToLive < System.nanoTime()) {
+			if (TIME_TO_LIVE < System.nanoTime()) {
 				urlBuffer.notifyAll();
 				return;
 			}

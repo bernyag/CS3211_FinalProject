@@ -1,6 +1,7 @@
 package threads;
 
 import java.util.*;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
 import entity.*;
@@ -13,17 +14,19 @@ import entity.*;
  * @since 2020-03-18
  */
 public class IndexBuilder implements Runnable {
-	private final List<UrlTuple> urlBuffer;
+	private final List<UrlTuple> URL_BUFFER;
 	private final int MAX_CAPACITY;
-	private final UrlTree urlIndex;
-	private final long timeToLive;
+	private final UrlTree URL_INDEX;
+	private final long TIME_TO_LIVE;
+	private final CyclicBarrier BARRIER;
 
 	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex, int max_capacity, final long timeToLive,
-			final TimeUnit timeUnit) {
-		this.urlIndex = urlIndex;
-		this.urlBuffer = sharedQueue;
+			final TimeUnit timeUnit, CyclicBarrier barrier) {
+		this.URL_INDEX = urlIndex;
+		this.URL_BUFFER = sharedQueue;
 		this.MAX_CAPACITY = max_capacity;
-		this.timeToLive = System.nanoTime() + timeUnit.toNanos(timeToLive);
+		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
+		this.BARRIER = barrier;
 	}
 
 	/**
@@ -32,14 +35,19 @@ public class IndexBuilder implements Runnable {
 	 */
 	@Override
 	public void run() {
-		while (timeToLive > System.nanoTime()) {
+		while (TIME_TO_LIVE > System.nanoTime()) {
 			try {
 				consume();
 			} catch (InterruptedException ex) {
 				ex.printStackTrace();
 			}
 		}
-		System.out.println("Thread " + Thread.currentThread().getName() + " has finished!");
+		try {
+			BARRIER.await();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		System.out.println(Thread.currentThread().getName() + " has finished!");
 	}
 
 	/**
@@ -51,32 +59,30 @@ public class IndexBuilder implements Runnable {
 	 *           merged
 	 */
 	private void consume() throws InterruptedException {
-		synchronized (urlBuffer) {
-			while (urlBuffer.size() != MAX_CAPACITY) {
-				if(timeToLive < System.nanoTime()){
-					urlBuffer.notifyAll();
+		synchronized (URL_BUFFER) {
+			while (URL_BUFFER.size() != MAX_CAPACITY) {
+				if (TIME_TO_LIVE < System.nanoTime()) {
+					URL_BUFFER.notifyAll();
 					return;
 				}
 				System.out.println("Queue is empty " + Thread.currentThread().getName() + " is waiting , size: "
-						+ urlBuffer.size());
-				urlBuffer.wait();
+						+ URL_BUFFER.size());
+				URL_BUFFER.wait();
 			}
 
-			
-
-			while (urlBuffer.size() > 0) {
-				UrlTuple pair = (UrlTuple) urlBuffer.remove(0);
+			while (URL_BUFFER.size() > 0) {
+				UrlTuple pair = (UrlTuple) URL_BUFFER.remove(0);
 				System.out.println("Consumed a pair by thread " + Thread.currentThread().getName());
-				if (!urlIndex.search(pair)) {
-					urlIndex.insert(pair);
+				if (!URL_INDEX.search(pair)) {
+					URL_INDEX.insert(pair);
 				}
 			}
 
-			if(timeToLive < System.nanoTime()){
-				urlBuffer.notifyAll();
+			if (TIME_TO_LIVE < System.nanoTime()) {
+				URL_BUFFER.notifyAll();
 				return;
 			}
-			urlBuffer.notifyAll();
+			URL_BUFFER.notifyAll();
 		}
 	}
 }

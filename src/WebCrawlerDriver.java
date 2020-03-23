@@ -1,10 +1,10 @@
 import java.io.BufferedReader;
-import java.io.File;
 
 import threads.*;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
 import entity.UrlTuple;
@@ -18,7 +18,7 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUFFERS = 3;
 
 	// maximum capacity of the BUL
-	private static final int MAX_CAPACITY = 10;
+	private static final int MAX_CAPACITY = 1000;
 
 	// number of crawling threads
 	private static final int NO_OF_CRAWLERS = 6;
@@ -27,7 +27,24 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUILDERS = 3;
 
 	// timeout in nanoseconds
-	private static final long MAX_TIMEOUT = 60L;
+	private static final long MAX_TIMEOUT = 3600L;
+
+	// barrier to wait for all the threads
+	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
+
+	private static String getResultString(Map<String, List<String>> indexContent) {
+		String result = "";
+		int n = 0;
+		for (String key : indexContent.keySet()) {
+			String from = key + " -> ";
+			List<String> foundURLs = indexContent.get(key);
+			for (String url : foundURLs) {
+				result += from + url + "\n";
+				n++;
+			}
+		}
+		return result + "Total number of URLs: " + n;
+	}
 
 	public static void main(String[] args) throws IOException {
 
@@ -76,7 +93,8 @@ public class WebCrawlerDriver {
 				// System.out.println(intialURLs.get(j));
 				taskStack.push(intialURLs.get(j));
 			}
-			crawlers[i] = new Thread(new WebCrawler(buffer, taskStack, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS));
+			crawlers[i] = new Thread(
+					new WebCrawler(buffer, taskStack, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
 			crawlers[i].start();
 		}
 
@@ -84,10 +102,25 @@ public class WebCrawlerDriver {
 		Thread[] builders = new Thread[NO_OF_BUILDERS];
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i);
-			builders[i] = new Thread(new IndexBuilder(buffer, index, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS));
+			builders[i] = new Thread(
+					new IndexBuilder(buffer, index, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
 			builders[i].start();
 
 		}
 
+		try {
+			for (int i = 0; i < NO_OF_CRAWLERS; i++) {
+				crawlers[i].join();
+			}
+			for (int i = 0; i < NO_OF_BUILDERS; i++) {
+				builders[i].join();
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+
+		// Print the content of the index to the console
+		// TODO gotta change it to writing to a file
+		System.out.println(getResultString(index.getResult()));
 	}
 }
