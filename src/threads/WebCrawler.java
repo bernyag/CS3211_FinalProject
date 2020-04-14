@@ -32,6 +32,9 @@ public class WebCrawler implements Runnable {
 
 	// barrier to wait for the threads
 	private final CyclicBarrier BARRIER;
+	public static HashSet<String> seenurls = new HashSet<>();
+
+	BufferedReader br;
 
 	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size,
 			final long timeToLive, final TimeUnit timeUnit, CyclicBarrier barrier) {
@@ -56,14 +59,16 @@ public class WebCrawler implements Runnable {
 
 					// get a URL to work with
 					String nextURL = TASK_STACK.pop();
-
+					System.out.println(TASK_STACK.size());
 					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
 
 					if (urlsFound == null)
 						continue;
 
+					String html = urlsFound.remove(urlsFound.size()-1);
+		
 					// create a tuple to put in the BUL
-					UrlTuple pair = new UrlTuple(nextURL, urlsFound);
+					UrlTuple pair = new UrlTuple(nextURL, html);
 
 					// put the object into the BUL
 					produce(pair);
@@ -77,6 +82,7 @@ public class WebCrawler implements Runnable {
 
 		try {
 			BARRIER.await();
+			br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -118,7 +124,7 @@ public class WebCrawler implements Runnable {
 			return null;
 		}
 
-		final BufferedReader br = new BufferedReader(new InputStreamReader(is));
+		br = new BufferedReader(new InputStreamReader(is));
 		String line = null;
 		final StringBuffer sb = new StringBuffer();
 		try {
@@ -135,15 +141,30 @@ public class WebCrawler implements Runnable {
 				.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
 		final Matcher m = pattern.matcher(html);
 
-		final ArrayList<String> foundURLs = new ArrayList<>();
-
+		final HashSet<String> foundURLs = new HashSet<>();
 		while (m.find()) {
 			final String found = m.group();
-			TASK_STACK.push(found);
 			foundURLs.add(found);
 		}
 
-		return foundURLs;
+		System.out.println("URL STRING: " +  urlstring);
+		for( String e : foundURLs){
+			//System.out.println(urlstring + "------>" + e);
+		}
+
+		for(String s : foundURLs){
+			if(!seenurls.contains(s)){
+				TASK_STACK.addAll(foundURLs);
+			}
+		}
+
+		seenurls.addAll(foundURLs);
+
+		ArrayList<String> ret = new ArrayList<>();
+		ret.addAll(foundURLs);
+		ret.add(html);
+
+		return ret;
 	}
 
 	/**
@@ -167,6 +188,7 @@ public class WebCrawler implements Runnable {
 			}
 
 			urlBuffer.add(pair);
+
 			System.out.println("Produced a url-html pair by thread " + Thread.currentThread().getName());
 
 			urlBuffer.notifyAll();

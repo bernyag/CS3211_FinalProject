@@ -13,18 +13,20 @@ import java.util.HashSet;
  */
 public class UrlTuple{
     private String URL;
+    private String HTML;
+
     private HashSet<String> foundURLs = new HashSet<>();
 
-    public UrlTuple(String URL, Collection<String> foundURLs){
+    public UrlTuple(String URL, String HTML){
         this.URL = URL;
-        this.foundURLs.addAll(foundURLs);
+        this.HTML = HTML;
     }
 
     public String getURL(){
         return URL;
     }
 
-    public HashSet<String> getFoundUrls(){
-        return foundURLs;
+    public String GetHTML(){
+        return HTML;
     }
 }

@@ -1,6 +1,7 @@
 import java.io.BufferedReader;
 
 import threads.*;
+import entity.*;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -18,7 +19,7 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUFFERS = 3;
 
 	// maximum capacity of the BUL
-	private static final int MAX_CAPACITY = 1000;
+	private static final int MAX_CAPACITY = 10;
 
 	// number of crawling threads
 	private static final int NO_OF_CRAWLERS = 6;
@@ -27,10 +28,11 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUILDERS = 3;
 
 	// timeout in nanoseconds
-	private static final long MAX_TIMEOUT = 3600L;
+	private static final long MAX_TIMEOUT = 300;
 
 	// barrier to wait for all the threads
 	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
+
 
 	private static String getResultString(Map<String, List<String>> indexContent) {
 		String result = "";
@@ -50,6 +52,8 @@ public class WebCrawlerDriver {
 
 		// IUT data structure
 		UrlTree index = new UrlTree();
+		UrlTree tre = index;
+		
 
 		// create the buffers
 		ArrayList<ArrayList<UrlTuple>> buffers = new ArrayList<>();
@@ -90,9 +94,9 @@ public class WebCrawlerDriver {
 			Stack<String> taskStack = new Stack<>();
 			ArrayList<String> intialURLs = seeds.get(i);
 			for (int j = 0; j < intialURLs.size(); j++) {
-				// System.out.println(intialURLs.get(j));
-				taskStack.push(intialURLs.get(j));
+				taskStack.add(intialURLs.get(j));
 			}
+
 			crawlers[i] = new Thread(
 					new WebCrawler(buffer, taskStack, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
 			crawlers[i].start();
@@ -121,6 +125,7 @@ public class WebCrawlerDriver {
 
 		// Print the content of the index to the console
 		// TODO gotta change it to writing to a file
-		System.out.println(getResultString(index.getResult()));
+		System.out.println("Total number of URLs: " + index.SET.size());
+		//System.out.println(getResultString(index.getResult()));
 	}
 }

@@ -1,6 +1,17 @@
 package entity;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.*;
+
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 /**
  * This class defines the URLTree. The tree is alphabetically indexed (wrt the
@@ -12,8 +23,15 @@ import java.util.*;
 public class UrlTree {
 	public final URLTreeNode root; // Root of the Indexed URL Tree
 
+	public HashSet<String> SET = null;
+
+	public HashMap<Character,String> PREFIX_INDEX = null;
+
 	public UrlTree() {
 		this.root = new URLTreeNode();
+		SET = new HashSet<>();
+		new File("./indexfiles").mkdirs();
+
 	}
 
 	/**
@@ -47,7 +65,7 @@ public class UrlTree {
 		String oringinalUrl = urlTuple.getURL();
 		int length = oringinalUrl.length();
 
-		HashSet<String> foundlUrls = urlTuple.getFoundUrls();
+		HashSet<String> foundlUrls = null;//urlTuple.getFoundUrls();
 
 		char currentChar;
 
@@ -107,26 +125,56 @@ public class UrlTree {
 	/**
 	 * Gets all the urls (and their children) fromn the trie
 	 */
-	public HashMap<String,List<String>> getResult() {
+	public HashMap<String, List<String>> getResult() {
 
-		HashMap<String,List<String>> result = new HashMap<>();
+		HashMap<String, List<String>> result = new HashMap<>();
 
-		for(Character c : root.children.keySet()){
+		for (Character c : root.children.keySet()) {
 			getResult(result, "" + c, root.children.get(c));
 		}
 
 		return result;
 	}
 
-	private void getResult(HashMap<String,List<String>> map, String word, URLTreeNode node){
-		if(node.urls != null){
+	private void getResult(HashMap<String, List<String>> map, String word, URLTreeNode node) {
+		if (node.urls != null) {
 			List<String> foundUrls = new LinkedList<>();
 			foundUrls.addAll(node.urls);
 			map.put(word, foundUrls);
 		}
 
-		for (Character c : node.children.keySet()){
+		for (Character c : node.children.keySet()) {
 			getResult(map, word + c, node.children.get(c));
+		}
+	}
+
+	public int getsize() {
+		return SET.size();
+	}
+
+	// ...................................................................
+
+
+	public void addURL(UrlTuple ut){
+		String url = ut.getURL();
+		String strippedUrl = url.replace("http://","").replace("https://","").replace("www.","");
+		System.out.println(strippedUrl);
+
+		try {
+			URI uri = new URI(url);
+			FileWriter fw = new FileWriter("./indexfiles/" + strippedUrl.charAt(0) + "\n", true);
+			System.out.println("uri " + uri);
+			System.out.println("uri.getHost() " + uri.getHost());
+			System.out.println("uri.getPath() " + uri.getPath());
+			System.out.println("Paths.get(uri.getPath()) " + Paths.get(uri.getPath()));
+			System.out.println("Paths.get(uri.getPath()).getFileName()" + Paths.get(uri.getPath()).getFileName());
+
+			Path filename = Paths.get(uri.getPath()).getFileName();
+
+			fw.write(uri.getHost() + "-" + (filename == null ? "unknown" : filename) + "\n");
+			fw.close();
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 	}
 }

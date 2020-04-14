@@ -70,12 +70,12 @@ public class IndexBuilder implements Runnable {
 				URL_BUFFER.wait();
 			}
 
-			while (URL_BUFFER.size() > 0) {
-				UrlTuple pair = (UrlTuple) URL_BUFFER.remove(0);
-				System.out.println("Consumed a pair by thread " + Thread.currentThread().getName());
-				if (!URL_INDEX.search(pair)) {
-					URL_INDEX.insert(pair);
-				}
+			ArrayList<UrlTuple> copy = new ArrayList<>();
+			copy.addAll(URL_BUFFER);
+			URL_BUFFER.clear();
+
+			for(UrlTuple ut : copy){
+				URL_INDEX.addURL(ut);;
 			}
 
 			if (TIME_TO_LIVE < System.nanoTime()) {
