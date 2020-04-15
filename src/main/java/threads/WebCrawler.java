@@ -1,13 +1,20 @@
 package threads;
 
+import entity.UrlTuple;
+
 import java.util.*;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.*;
-import entity.UrlTuple;
 
 import java.io.*;
 import java.net.*;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.mapdb.DB;
 
 /**
  * This class defines the crawling threads. The crawling threads have a personal
@@ -25,24 +32,31 @@ public class WebCrawler implements Runnable {
 	private final int MAX_CAPACITY;
 
 	// stack storing URLs for this crawling thread to use
-	private final Stack<String> TASK_STACK;
+	private volatile Stack<String> TASK_STACK;
 
 	// how long the thread will live
 	private final long TIME_TO_LIVE;
 
 	// barrier to wait for the threads
 	private final CyclicBarrier BARRIER;
+	
 	public static HashSet<String> seenurls = new HashSet<>();
+	
+	private NavigableSet<String> IUT;
+	private DB DB;
 
 	BufferedReader br;
 
-	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, final int size,
+	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, 
+			NavigableSet<String> IUT, DB db, final int size,
 			final long timeToLive, final TimeUnit timeUnit, CyclicBarrier barrier) {
 		this.urlBuffer = sharedQueue;
 		this.TASK_STACK = taskQueue;
 		this.MAX_CAPACITY = size;
 		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
 		this.BARRIER = barrier;
+		this.DB = db;
+		this.IUT = IUT;
 	}
 
 	/**
@@ -56,11 +70,10 @@ public class WebCrawler implements Runnable {
 		while (TIME_TO_LIVE > System.nanoTime()) {
 			try {
 				if (!TASK_STACK.isEmpty()) {
-
 					// get a URL to work with
 					String nextURL = TASK_STACK.pop();
 					System.out.println(TASK_STACK.size());
-					ArrayList<String> urlsFound = extractHtmlAndLinks(nextURL);
+					ArrayList<String> urlsFound = jsoupExtractHtmlAndLinks(nextURL);
 
 					if (urlsFound == null)
 						continue;
@@ -68,7 +81,7 @@ public class WebCrawler implements Runnable {
 					String html = urlsFound.remove(urlsFound.size()-1);
 		
 					// create a tuple to put in the BUL
-					UrlTuple pair = new UrlTuple(nextURL, html);
+					UrlTuple pair = new UrlTuple(nextURL, html, urlsFound);
 
 					// put the object into the BUL
 					produce(pair);
@@ -82,7 +95,7 @@ public class WebCrawler implements Runnable {
 
 		try {
 			BARRIER.await();
-			br.close();
+			//br.close();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -154,11 +167,11 @@ public class WebCrawler implements Runnable {
 
 		for(String s : foundURLs){
 			if(!seenurls.contains(s)){
-				TASK_STACK.addAll(foundURLs);
+				TASK_STACK.add(s);
+				seenurls.add(s);
 			}
 		}
-
-		seenurls.addAll(foundURLs);
+		
 
 		ArrayList<String> ret = new ArrayList<>();
 		ret.addAll(foundURLs);
@@ -166,6 +179,46 @@ public class WebCrawler implements Runnable {
 
 		return ret;
 	}
+	
+	private ArrayList<String> jsoupExtractHtmlAndLinks(final String urlstring) {
+		// try to fetch the document
+		Document doc = null;
+		try {			
+			doc = Jsoup.connect(urlstring).get();
+		} catch (IOException e) {
+			return null;
+		}
+		
+		// parse HTML into a string
+		String html = doc.toString();
+
+		// get the links from the website
+		Elements links = doc.select("a[href]");
+		
+		
+		HashSet<String> currentset = new HashSet<>();
+
+		// push these links onto the crawlers associated stack 
+		for (Element link : links) {
+			currentset.add(link.attr("abs:href").toString());
+		}
+		
+		ArrayList<String> ret = new ArrayList<String>();
+		
+		ret.addAll(currentset);
+		
+		for(String s : ret) {
+			if(!IUT.contains(s)) {
+				TASK_STACK.add(s);
+			}
+		}
+		
+		ret.add(html);
+		
+		// return string representation of html
+		return ret;
+	}
+	
 
 	/**
 	 * Puts the webpage-tuple into the buffer. If the buffer is full the tread will

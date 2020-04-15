@@ -1,10 +1,12 @@
 package threads;
 
+import entity.*;
+
 import java.util.*;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
-import entity.*;
+import org.mapdb.DB;
 
 /**
  * This class defines the index building threads which consume elements from an
@@ -20,15 +22,15 @@ public class IndexBuilder implements Runnable {
 	private final long TIME_TO_LIVE;
 	private final CyclicBarrier BARRIER;
 
-	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex, int max_capacity, final long timeToLive,
-			final TimeUnit timeUnit, CyclicBarrier barrier) {
+	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex, int max_capacity, 
+			final long timeToLive, final TimeUnit timeUnit, CyclicBarrier barrier) {
 		this.URL_INDEX = urlIndex;
 		this.URL_BUFFER = sharedQueue;
 		this.MAX_CAPACITY = max_capacity;
 		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
 		this.BARRIER = barrier;
 	}
-
+	
 	/**
 	 * This method starts the Index building thread. It's task is to consume objects
 	 * from the buffer and insert them into the URLIndexTree
@@ -77,6 +79,7 @@ public class IndexBuilder implements Runnable {
 			for(UrlTuple ut : copy){
 				URL_INDEX.addURL(ut);;
 			}
+			
 
 			if (TIME_TO_LIVE < System.nanoTime()) {
 				URL_BUFFER.notifyAll();

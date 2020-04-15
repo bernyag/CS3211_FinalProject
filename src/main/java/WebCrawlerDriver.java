@@ -1,15 +1,19 @@
 import java.io.BufferedReader;
+import java.io.File;
 
-import threads.*;
 import entity.*;
+import threads.*;
+
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 
-import entity.UrlTuple;
-import entity.UrlTree;
+import org.apache.commons.io.FileUtils;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 
 import java.util.*;
 
@@ -49,7 +53,15 @@ public class WebCrawlerDriver {
 	}
 
 	public static void main(String[] args) throws IOException {
+		
+		FileUtils.deleteDirectory(new File("./indexfiles"));
+		FileUtils.deleteDirectory(new File("./htmls"));
+		FileUtils.forceDelete(new File("./IUTDB"));
 
+		
+		DB db = DBMaker.fileDB("IUTDB").make();
+		NavigableSet<String> IUT = db.treeSet("example").serializer(Serializer.STRING).createOrOpen();
+		
 		// IUT data structure
 		UrlTree index = new UrlTree();
 		UrlTree tre = index;
@@ -70,8 +82,9 @@ public class WebCrawlerDriver {
 		BufferedReader reader;
 
 		try {
-			reader = new BufferedReader(new FileReader("url-example.txt"));
+			reader = new BufferedReader(new FileReader("url.txt"));
 			String line = reader.readLine();
+			System.out.println(line);
 			int line_no = 0;
 			while (line != null) {
 				// get the right seed list
@@ -98,7 +111,7 @@ public class WebCrawlerDriver {
 			}
 
 			crawlers[i] = new Thread(
-					new WebCrawler(buffer, taskStack, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
+					new WebCrawler(buffer, taskStack, IUT, db, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
 			crawlers[i].start();
 		}
 
@@ -125,7 +138,7 @@ public class WebCrawlerDriver {
 
 		// Print the content of the index to the console
 		// TODO gotta change it to writing to a file
-		System.out.println("Total number of URLs: " + index.SET.size());
+		System.out.println("Total number of URLs: " + index.htmlDocId.toString());
 		//System.out.println(getResultString(index.getResult()));
 	}
 }

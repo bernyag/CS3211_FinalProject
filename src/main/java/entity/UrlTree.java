@@ -1,17 +1,8 @@
 package entity;
 
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.util.*;
-
-import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
 
 /**
  * This class defines the URLTree. The tree is alphabetically indexed (wrt the
@@ -26,12 +17,14 @@ public class UrlTree {
 	public HashSet<String> SET = null;
 
 	public HashMap<Character,String> PREFIX_INDEX = null;
+	
+	public static Integer htmlDocId = 0;
 
 	public UrlTree() {
 		this.root = new URLTreeNode();
 		SET = new HashSet<>();
 		new File("./indexfiles").mkdirs();
-
+		new File("./htmls").mkdirs();
 	}
 
 	/**
@@ -161,18 +154,15 @@ public class UrlTree {
 		System.out.println(strippedUrl);
 
 		try {
-			URI uri = new URI(url);
 			FileWriter fw = new FileWriter("./indexfiles/" + strippedUrl.charAt(0) + "\n", true);
-			System.out.println("uri " + uri);
-			System.out.println("uri.getHost() " + uri.getHost());
-			System.out.println("uri.getPath() " + uri.getPath());
-			System.out.println("Paths.get(uri.getPath()) " + Paths.get(uri.getPath()));
-			System.out.println("Paths.get(uri.getPath()).getFileName()" + Paths.get(uri.getPath()).getFileName());
-
-			Path filename = Paths.get(uri.getPath()).getFileName();
-
-			fw.write(uri.getHost() + "-" + (filename == null ? "unknown" : filename) + "\n");
+			FileWriter htmlw = new FileWriter("./htmls/" + htmlDocId.toString() + "\n");
+			fw.write(url + " ---> " + " " + htmlDocId.toString() + "\n");
+			htmlw.write(ut.GetHTML());
+			htmlDocId++;
+			
+			htmlw.close();
 			fw.close();
+			
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

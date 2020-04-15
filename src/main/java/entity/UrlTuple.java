@@ -1,5 +1,6 @@
 package entity;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 
@@ -14,12 +15,14 @@ import java.util.HashSet;
 public class UrlTuple{
     private String URL;
     private String HTML;
+    private ArrayList<String> foundUrls;
 
     private HashSet<String> foundURLs = new HashSet<>();
 
-    public UrlTuple(String URL, String HTML){
+    public UrlTuple(String URL, String HTML, ArrayList<String> foundUrls){
         this.URL = URL;
         this.HTML = HTML;
+        this.foundUrls = foundUrls; 
     }
 
     public String getURL(){
@@ -28,5 +31,9 @@ public class UrlTuple{
 
     public String GetHTML(){
         return HTML;
+    }
+    
+    public ArrayList<String> getFoundUrls(){
+    	return foundUrls;
     }
 }
