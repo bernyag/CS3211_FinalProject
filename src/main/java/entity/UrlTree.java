@@ -145,26 +145,9 @@ public class UrlTree {
 		return SET.size();
 	}
 
+	
 	// ...................................................................
 
 
-	public void addURL(UrlTuple ut){
-		String url = ut.getURL();
-		String strippedUrl = url.replace("http://","").replace("https://","").replace("www.","");
-		System.out.println(strippedUrl);
 
-		try {
-			FileWriter fw = new FileWriter("./indexfiles/" + strippedUrl.charAt(0) + "\n", true);
-			FileWriter htmlw = new FileWriter("./htmls/" + htmlDocId.toString() + "\n");
-			fw.write(url + " ---> " + " " + htmlDocId.toString() + "\n");
-			htmlw.write(ut.GetHTML());
-			htmlDocId++;
-			
-			htmlw.close();
-			fw.close();
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
 }

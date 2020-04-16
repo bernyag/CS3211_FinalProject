@@ -1,3 +1,5 @@
+package driver;
+
 import java.io.BufferedReader;
 import java.io.File;
 
@@ -5,7 +7,9 @@ import entity.*;
 import threads.*;
 
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -36,6 +40,9 @@ public class WebCrawlerDriver {
 
 	// barrier to wait for all the threads
 	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
+	
+	private static Thread[] crawlers;
+	private static Thread[] builders;
 
 
 	private static String getResultString(Map<String, List<String>> indexContent) {
@@ -51,12 +58,35 @@ public class WebCrawlerDriver {
 		}
 		return result + "Total number of URLs: " + n;
 	}
+	
+	public static boolean ThreadsAreStillWaiting() {
+		for(int i = 0; i < crawlers.length; i++) {
+			if(crawlers[i].getState() == State.WAITING) {
+				return true;
+			}
+		}
+		
+		for(int j = 0; j < builders.length; j++) {
+			if(builders[j].getState() == State.WAITING) {
+				return true;
+			}
+		}
+		return false;
+	}
 
 	public static void main(String[] args) throws IOException {
 		
 		FileUtils.deleteDirectory(new File("./indexfiles"));
 		FileUtils.deleteDirectory(new File("./htmls"));
-		FileUtils.forceDelete(new File("./IUTDB"));
+		
+		FileWriter reswriter = new FileWriter("res", true);
+		
+		
+		try {
+			FileUtils.forceDelete(new File("./IUTDB"));
+		}catch(Exception e) {
+			
+		}
 
 		
 		DB db = DBMaker.fileDB("IUTDB").make();
@@ -101,7 +131,7 @@ public class WebCrawlerDriver {
 		}
 
 		// create the crawlers
-		Thread[] crawlers = new Thread[NO_OF_CRAWLERS];
+		crawlers = new Thread[NO_OF_CRAWLERS];
 		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i / 2);
 			Stack<String> taskStack = new Stack<>();
@@ -116,29 +146,33 @@ public class WebCrawlerDriver {
 		}
 
 		// create the builders
-		Thread[] builders = new Thread[NO_OF_BUILDERS];
+		builders = new Thread[NO_OF_BUILDERS];
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i);
 			builders[i] = new Thread(
-					new IndexBuilder(buffer, index, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
+					new IndexBuilder(buffer, index, IUT, db, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER, reswriter));
 			builders[i].start();
 
 		}
-
+		
+		
+		long ttl = System.nanoTime() + TimeUnit.SECONDS.toNanos(MAX_TIMEOUT);
+		
+		//while(ttl > System.nanoTime()) {}
+		
 		try {
-			for (int i = 0; i < NO_OF_CRAWLERS; i++) {
+			for(int i = 0; i < crawlers.length; i++) {
 				crawlers[i].join();
 			}
-			for (int i = 0; i < NO_OF_BUILDERS; i++) {
+			for(int i = 0; i < builders.length; i++) {
 				builders[i].join();
 			}
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+		} catch (Exception e) {}
+		
 
 		// Print the content of the index to the console
 		// TODO gotta change it to writing to a file
-		System.out.println("Total number of URLs: " + index.htmlDocId.toString());
+		System.out.println("Total number of URLs: " + IndexBuilder.htmlDocId.toString());
 		//System.out.println(getResultString(index.getResult()));
 	}
 }

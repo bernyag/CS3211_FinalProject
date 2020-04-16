@@ -16,6 +16,8 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.mapdb.DB;
 
+import driver.WebCrawlerDriver;
+
 /**
  * This class defines the crawling threads. The crawling threads have a personal
  * stack of URL:s that they read through. There are 2 CTs associated with every
@@ -69,12 +71,12 @@ public class WebCrawler implements Runnable {
 	public void run() {
 		while (TIME_TO_LIVE > System.nanoTime()) {
 			try {
+				System.out.println("SIZE OF STACK: -----> " + TASK_STACK.size());
 				if (!TASK_STACK.isEmpty()) {
 					// get a URL to work with
 					String nextURL = TASK_STACK.pop();
 					System.out.println(TASK_STACK.size());
 					ArrayList<String> urlsFound = jsoupExtractHtmlAndLinks(nextURL);
-
 					if (urlsFound == null)
 						continue;
 
@@ -82,7 +84,8 @@ public class WebCrawler implements Runnable {
 		
 					// create a tuple to put in the BUL
 					UrlTuple pair = new UrlTuple(nextURL, html, urlsFound);
-
+					
+					System.out.println("After jsoup size: " + urlsFound.size());
 					// put the object into the BUL
 					produce(pair);
 				} else {
@@ -207,6 +210,8 @@ public class WebCrawler implements Runnable {
 		
 		ret.addAll(currentset);
 		
+		//seenurls.add(urlstring);
+		
 		for(String s : ret) {
 			if(!IUT.contains(s)) {
 				TASK_STACK.add(s);
@@ -232,13 +237,20 @@ public class WebCrawler implements Runnable {
 
 			// check the blocking condition
 			while (urlBuffer.size() == MAX_CAPACITY) {
+				System.out.println("Before wait thread: " + Thread.currentThread().getName());
 				urlBuffer.wait();
+				System.out.println("After wait thread: " + Thread.currentThread().getName());
 			}
 
 			if (TIME_TO_LIVE < System.nanoTime()) {
-				urlBuffer.notifyAll();
+				//while(WebCrawlerDriver.ThreadsAreStillWaiting()) {
+				urlBuffer.notifyAll();	
+				//}
+				System.out.println("Notified and returning thread: " + Thread.currentThread().getName());
 				return;
 			}
+			
+			System.out.println("urlbuf size " + urlBuffer.size());
 
 			urlBuffer.add(pair);
 
