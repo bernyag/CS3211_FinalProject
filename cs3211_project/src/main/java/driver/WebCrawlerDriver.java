@@ -41,6 +41,10 @@ public class WebCrawlerDriver {
 	public static String outputfile;
 	public static int storedPageNum;
 	
+	
+	/**
+	 * This method checks if the arguments provided to the program are valid.
+	 */
 	private static boolean checkArguments(String[] args) {
 		
 		boolean[] beenChecker = new boolean[4];
@@ -61,7 +65,8 @@ public class WebCrawlerDriver {
 			    	continue;
 			    }
 			    else {
-			    	System.err.println("-time requires a number");			    	
+			    	System.err.println("-time requires a number");	
+			    	return false;
 			    }
 			}
 			
@@ -72,7 +77,8 @@ public class WebCrawlerDriver {
 			        continue;
 			    }
 			    else {
-			    	System.err.println("-inputrequires a filename");			    	
+			    	System.err.println("-inputrequires a filename");
+			    	return false;
 			    }
 			}
 			
@@ -83,7 +89,8 @@ public class WebCrawlerDriver {
 					continue;
 			    }
 			    else {
-			    	System.err.println("-output requires a filename");			    	
+			    	System.err.println("-output requires a filename");		
+			    	return false;
 			    }
 			}
 			
@@ -94,7 +101,8 @@ public class WebCrawlerDriver {
 			        continue;
 			    }
 			    else {
-			    	System.err.println("-storedPageNum requires a number");			    	
+			    	System.err.println("-storedPageNum requires a number");	
+			    	return false;
 			    }
 			}
 			return false;
