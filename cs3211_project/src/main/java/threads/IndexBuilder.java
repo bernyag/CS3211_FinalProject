@@ -21,20 +21,17 @@ public class IndexBuilder implements Runnable {
 	private final List<UrlTuple> URL_BUFFER;
 	private final int MAX_CAPACITY;
 	private final UrlTree URL_INDEX;
-	private final long TIME_TO_LIVE;
 	private final CyclicBarrier BARRIER;
 	private NavigableSet<String> IUT;
 	private DB DB;
 	public static Integer htmlDocId = 0;
 	private FileWriter reswriter;
 
-	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex,
-			NavigableSet<String> IUT, DB db, int max_capacity, final long timeToLive, 
-			final TimeUnit timeUnit, CyclicBarrier barrier, FileWriter fw) {
+	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex, NavigableSet<String> IUT, 
+			DB db, int max_capacity, CyclicBarrier barrier, FileWriter fw) {
 		this.URL_INDEX = urlIndex;
 		this.URL_BUFFER = sharedQueue;
 		this.MAX_CAPACITY = max_capacity;
-		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
 		this.BARRIER = barrier;
 		this.DB = db;
 		this.IUT = IUT;
@@ -46,20 +43,15 @@ public class IndexBuilder implements Runnable {
 	 * from the buffer and insert them into the URLIndexTree
 	 */
 	@Override
-	public void run() {
-		while (TIME_TO_LIVE > System.nanoTime()) {
+	public void run(){
+		while (WebCrawlerDriver.TTL > System.nanoTime()) {
 			try {
 				consume();
 			} catch (InterruptedException ex) {
 				ex.printStackTrace();
 			}
 		}
-		try {
-			BARRIER.await();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		System.out.println(Thread.currentThread().getName() + " has finished!");
+		System.out.println("Thread finished!!!!!: " + Thread.currentThread().getName());
 	}
 	
 	
@@ -96,20 +88,20 @@ public class IndexBuilder implements Runnable {
 	 *           merged
 	 */
 	private void consume() throws InterruptedException {
-		synchronized (URL_BUFFER) {
-			while (URL_BUFFER.size() != MAX_CAPACITY) {
-				if (TIME_TO_LIVE < System.nanoTime()) {
-					//while(WebCrawlerDriver.ThreadsAreStillWaiting()) {
-					URL_BUFFER.notifyAll();	
-					//}
-					System.out.println("Notified and returning thread: " + Thread.currentThread().getName());
-					return;
-				}
+		synchronized (URL_BUFFER) {		
+			System.out.println("Before await thread: " + Thread.currentThread().getName());
+			while (URL_BUFFER.size() != MAX_CAPACITY && WebCrawlerDriver.TTL > System.nanoTime()) {
 				System.out.println("Queue is empty " + Thread.currentThread().getName() + " is waiting , size: "
 						+ URL_BUFFER.size());
-				URL_BUFFER.wait();
+				System.out.println("Before await " + Thread.currentThread().getName());
+				try{
+					URL_BUFFER.wait();
+				} catch(InterruptedException e) {
+					
+				}
+		
 			}
-
+			System.out.println("Before copy " + Thread.currentThread().getName());
 			ArrayList<UrlTuple> copy = new ArrayList<>();
 			copy.addAll(URL_BUFFER);
 			URL_BUFFER.clear();
@@ -120,14 +112,9 @@ public class IndexBuilder implements Runnable {
 				
 			}
 
-			
+			System.out.println("before nano " + Thread.currentThread().getName());
 
-			if (TIME_TO_LIVE < System.nanoTime()) {
-				System.out.println("Before wait thread: " + Thread.currentThread().getName());
-				URL_BUFFER.notifyAll();
-				System.out.println("After wait thread: " + Thread.currentThread().getName());
-				return;
-			}
+
 			URL_BUFFER.notifyAll();
 		}
 	}

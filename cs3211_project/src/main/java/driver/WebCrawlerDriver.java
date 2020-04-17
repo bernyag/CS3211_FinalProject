@@ -27,7 +27,7 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUFFERS = 3;
 
 	// maximum capacity of the BUL
-	private static final int MAX_CAPACITY = 10;
+	private static final int MAX_CAPACITY = 10;	
 
 	// number of crawling threads
 	private static final int NO_OF_CRAWLERS = 6;
@@ -43,6 +43,7 @@ public class WebCrawlerDriver {
 	
 	private static Thread[] crawlers;
 	private static Thread[] builders;
+	public static long TTL;
 
 
 	private static String getResultString(Map<String, List<String>> indexContent) {
@@ -129,6 +130,8 @@ public class WebCrawlerDriver {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		
+		TTL  = System.nanoTime() + TimeUnit.SECONDS.toNanos(MAX_TIMEOUT);
 
 		// create the crawlers
 		crawlers = new Thread[NO_OF_CRAWLERS];
@@ -141,7 +144,7 @@ public class WebCrawlerDriver {
 			}
 
 			crawlers[i] = new Thread(
-					new WebCrawler(buffer, taskStack, IUT, db, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER));
+					new WebCrawler(buffer, taskStack, IUT, db, MAX_CAPACITY, BARRIER));
 			crawlers[i].start();
 		}
 
@@ -150,22 +153,21 @@ public class WebCrawlerDriver {
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i);
 			builders[i] = new Thread(
-					new IndexBuilder(buffer, index, IUT, db, MAX_CAPACITY, MAX_TIMEOUT, TimeUnit.SECONDS, BARRIER, reswriter));
+					new IndexBuilder(buffer, index, IUT, db, MAX_CAPACITY, BARRIER, reswriter));
 			builders[i].start();
 
 		}
 		
-		
-		long ttl = System.nanoTime() + TimeUnit.SECONDS.toNanos(MAX_TIMEOUT);
-		
-		//while(ttl > System.nanoTime()) {}
+		while(TTL+1000 > System.nanoTime()) {}
 		
 		try {
 			for(int i = 0; i < crawlers.length; i++) {
-				crawlers[i].join();
+				crawlers[i].interrupt();
+				//crawlers[i].join();
 			}
 			for(int i = 0; i < builders.length; i++) {
-				builders[i].join();
+				builders[i].interrupt();
+				//builders[i].join();
 			}
 		} catch (Exception e) {}
 		

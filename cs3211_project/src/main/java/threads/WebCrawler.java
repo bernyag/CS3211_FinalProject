@@ -36,9 +36,6 @@ public class WebCrawler implements Runnable {
 	// stack storing URLs for this crawling thread to use
 	private volatile Stack<String> TASK_STACK;
 
-	// how long the thread will live
-	private final long TIME_TO_LIVE;
-
 	// barrier to wait for the threads
 	private final CyclicBarrier BARRIER;
 	
@@ -50,12 +47,10 @@ public class WebCrawler implements Runnable {
 	BufferedReader br;
 
 	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, 
-			NavigableSet<String> IUT, DB db, final int size,
-			final long timeToLive, final TimeUnit timeUnit, CyclicBarrier barrier) {
+			NavigableSet<String> IUT, DB db, final int size, CyclicBarrier barrier) {
 		this.urlBuffer = sharedQueue;
 		this.TASK_STACK = taskQueue;
 		this.MAX_CAPACITY = size;
-		this.TIME_TO_LIVE = System.nanoTime() + timeUnit.toNanos(timeToLive);
 		this.BARRIER = barrier;
 		this.DB = db;
 		this.IUT = IUT;
@@ -69,7 +64,7 @@ public class WebCrawler implements Runnable {
 	 */
 	@Override
 	public void run() {
-		while (TIME_TO_LIVE > System.nanoTime()) {
+		while (WebCrawlerDriver.TTL > System.nanoTime()) {
 			try {
 				System.out.println("SIZE OF STACK: -----> " + TASK_STACK.size());
 				if (!TASK_STACK.isEmpty()) {
@@ -95,16 +90,7 @@ public class WebCrawler implements Runnable {
 				ex.printStackTrace();
 			}
 		}
-
-		try {
-			BARRIER.await();
-			//br.close();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		System.out.println(Thread.currentThread().getName() + " has finished!");
-
+		System.out.println("Thread finished!!!!!: " + Thread.currentThread().getName());
 	}
 
 	/**
@@ -115,74 +101,6 @@ public class WebCrawler implements Runnable {
 	 * @param url
 	 * @return
 	 */
-	private ArrayList<String> extractHtmlAndLinks(final String urlstring) {
-		URL url = null;
-		try {
-			url = new URL(urlstring);
-		} catch (final MalformedURLException e) {
-			// Do nothing
-		}
-
-		URLConnection con = null;
-		try {
-			con = url.openConnection();
-		} catch (Exception e1) {
-			e1.printStackTrace();
-		}
-
-		con.setConnectTimeout(10000);
-		con.setReadTimeout(10000);
-
-		InputStream is = null;
-		try {
-			is = con.getInputStream();
-		} catch (final Exception e) {
-			return null;
-		}
-
-		br = new BufferedReader(new InputStreamReader(is));
-		String line = null;
-		final StringBuffer sb = new StringBuffer();
-		try {
-			while ((line = br.readLine()) != null) {
-				sb.append(line);
-			}
-		} catch (final Exception e) {
-			// Do nothing
-		}
-
-		final String html = sb.toString();
-
-		final Pattern pattern = Pattern
-				.compile("(https?|ftp|file)://[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*[-a-zA-Z0-9+&@#/%=~_|]");
-		final Matcher m = pattern.matcher(html);
-
-		final HashSet<String> foundURLs = new HashSet<>();
-		while (m.find()) {
-			final String found = m.group();
-			foundURLs.add(found);
-		}
-
-		System.out.println("URL STRING: " +  urlstring);
-		for( String e : foundURLs){
-			//System.out.println(urlstring + "------>" + e);
-		}
-
-		for(String s : foundURLs){
-			if(!seenurls.contains(s)){
-				TASK_STACK.add(s);
-				seenurls.add(s);
-			}
-		}
-		
-
-		ArrayList<String> ret = new ArrayList<>();
-		ret.addAll(foundURLs);
-		ret.add(html);
-
-		return ret;
-	}
-	
 	private ArrayList<String> jsoupExtractHtmlAndLinks(final String urlstring) {
 		// try to fetch the document
 		Document doc = null;
@@ -234,20 +152,11 @@ public class WebCrawler implements Runnable {
 	 */
 	private void produce(final UrlTuple pair) throws InterruptedException {
 		synchronized (urlBuffer) {
-
 			// check the blocking condition
 			while (urlBuffer.size() == MAX_CAPACITY) {
 				System.out.println("Before wait thread: " + Thread.currentThread().getName());
 				urlBuffer.wait();
 				System.out.println("After wait thread: " + Thread.currentThread().getName());
-			}
-
-			if (TIME_TO_LIVE < System.nanoTime()) {
-				//while(WebCrawlerDriver.ThreadsAreStillWaiting()) {
-				urlBuffer.notifyAll();	
-				//}
-				System.out.println("Notified and returning thread: " + Thread.currentThread().getName());
-				return;
 			}
 			
 			System.out.println("urlbuf size " + urlBuffer.size());
