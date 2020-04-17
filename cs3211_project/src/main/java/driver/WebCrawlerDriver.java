@@ -9,7 +9,6 @@ import threads.*;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.Thread.State;
 import java.util.ArrayList;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
@@ -23,7 +22,7 @@ import java.util.*;
 
 public class WebCrawlerDriver {
 
-	// number of building threads
+	// number of buffers
 	private static final int NO_OF_BUFFERS = 3;
 
 	// maximum capacity of the BUL
@@ -34,52 +33,17 @@ public class WebCrawlerDriver {
 
 	// number of building threads
 	private static final int NO_OF_BUILDERS = 3;
-
-	// timeout in nanoseconds
-	private static int MAX_TIMEOUT = 300;
-
-	// barrier to wait for all the threads
-	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
 	
 	private static Thread[] crawlers;
 	private static Thread[] builders;
 	public static long TTL;
 	public static String inputfile;
 	public static String outputfile;
-
-
-	private static String getResultString(Map<String, List<String>> indexContent) {
-		String result = "";
-		int n = 0;
-		for (String key : indexContent.keySet()) {
-			String from = key + " -> ";
-			List<String> foundURLs = indexContent.get(key);
-			for (String url : foundURLs) {
-				result += from + url + "\n";
-				n++;
-			}
-		}
-		return result + "Total number of URLs: " + n;
-	}
-	
-	public static boolean ThreadsAreStillWaiting() {
-		for(int i = 0; i < crawlers.length; i++) {
-			if(crawlers[i].getState() == State.WAITING) {
-				return true;
-			}
-		}
-		
-		for(int j = 0; j < builders.length; j++) {
-			if(builders[j].getState() == State.WAITING) {
-				return true;
-			}
-		}
-		return false;
-	}
+	public static int storedPageNum;
 	
 	private static boolean checkArguments(String[] args) {
 		
-		//java cawler.jar -time 24h -input seed.txt -output res.txt -storedPageNum 1000
+		boolean[] beenChecker = new boolean[4];
 		
 		for(int i = 0; i < args.length; i++) {
 			
@@ -87,7 +51,13 @@ public class WebCrawlerDriver {
 			
 			if (argument.equals("-time")) {
 			    if (i+1 < args.length) {
-			    	MAX_TIMEOUT = Integer.parseInt(args[i++]);
+			    	beenChecker[i/2] = true;
+			    	
+			    	if(argument.length() < 2)
+			    		return false;
+			    	
+			    	argument = argument.substring(0, argument.length() - 1);
+			    	TTL = System.nanoTime() + TimeUnit.MINUTES.toNanos(Integer.parseInt(args[++i]));
 			    	continue;
 			    }
 			    else {
@@ -97,7 +67,8 @@ public class WebCrawlerDriver {
 			
 			if (argument.equals("-input")) {
 			    if (i+1 < args.length) {
-			        outputfile = args[i++];
+			    	beenChecker[i/2] = true;
+			        inputfile = args[++i];
 			        continue;
 			    }
 			    else {
@@ -107,7 +78,8 @@ public class WebCrawlerDriver {
 			
 			if (argument.equals("-output")) {
 			    if (i+1 < args.length) {
-			        outputfile = args[i++];
+			    	beenChecker[i/2] = true;
+			        outputfile = args[++i];
 					continue;
 			    }
 			    else {
@@ -117,7 +89,8 @@ public class WebCrawlerDriver {
 			
 			if (argument.equals("-storedPageNum")) {
 			    if (i+1 < args.length) {
-			        outputfile = args[i++];
+			    	beenChecker[i/2] = true;
+			    	storedPageNum = Integer.parseInt(args[++i]);
 			        continue;
 			    }
 			    else {
@@ -127,61 +100,31 @@ public class WebCrawlerDriver {
 			return false;
 		}
 		
+		for(int i = 0; i < beenChecker.length; i++) {
+			if(!beenChecker[i])
+				return false;
+		}
 		
 		return true;
 	}
 	
-	
-
-	public static void main(String[] args) throws IOException {
-		
-		/*if(!checkArguments(args)) {
-			System.err.println("Usage: java cawler.jar -time 24h -input seed.txt -output res.txt -storedPageNum 1000");	
-		}*/
-		
+	private static void deletePrevFiles()  throws IOException {
 		FileUtils.deleteDirectory(new File("./htmls"));
-		new File("./htmls").mkdirs();
-
 		
 		try {
 			FileUtils.forceDelete(new File("./IUTDB"));
-			FileUtils.forceDelete(new File("./res"));
-		}catch(Exception e) {
-			
-		}
-		
-		
-		FileWriter reswriter = new FileWriter("res", true);
-		
-
-		
-		DB db = DBMaker.fileDB("IUTDB").make();
-		NavigableSet<String> IUT = db.treeSet("example").serializer(Serializer.STRING).createOrOpen();
-		
-
-		// create the buffers
-		ArrayList<ArrayList<UrlTuple>> buffers = new ArrayList<>();
-		for (int i = 0; i < NO_OF_BUFFERS; i++) {
-			buffers.add(new ArrayList<UrlTuple>());
-		}
-
-		// split the docs of url seeds
-		ArrayList<ArrayList<String>> seeds = new ArrayList<>();
-		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
-			seeds.add(new ArrayList<String>());
-		}
-
+			FileUtils.forceDelete(new File("./" + outputfile));
+		}catch(Exception e) {}
+	}
+	
+	private static void initializeSeeds(ArrayList<ArrayList<String>> seeds) {
 		BufferedReader reader;
-
 		try {
-			reader = new BufferedReader(new FileReader("url.txt"));
+			reader = new BufferedReader(new FileReader(inputfile));
 			String line = reader.readLine();
-			System.out.println(line);
 			int line_no = 0;
 			while (line != null) {
-				// get the right seed list
 				ArrayList<String> list = seeds.get(line_no % NO_OF_CRAWLERS);
-				// read next line
 				line = reader.readLine();
 				list.add(line);
 				line_no++;
@@ -192,9 +135,44 @@ public class WebCrawlerDriver {
 			e.printStackTrace();
 		}
 		
-		TTL  = System.nanoTime() + TimeUnit.SECONDS.toNanos(MAX_TIMEOUT);
+	}
+	
+	public static void main(String[] args) throws IOException {
+		
+		//Check if arguments are correct
+		if(!checkArguments(args)) {
+			System.err.println("Usage: java cawler.jar -time 24h -input seed.txt -output res.txt -storedPageNum 1000");	
+			return;
+		}
+		
+		//Delete the files made by an eventual previous run
+		deletePrevFiles();
+		
+		//Preparing for the output
+		new File("./htmls").mkdirs();
+		FileWriter reswriter = new FileWriter(outputfile, true);
+		
+		
+		//Define the disk-based IUT to store the URLS we find.
+		DB db = DBMaker.fileDB("IUTDB").make();
+		NavigableSet<String> IUT = db.treeSet("IUT").serializer(Serializer.STRING).createOrOpen();
+		
 
-		// create the crawlers
+		//Initializing the buffers.
+		ArrayList<ArrayList<UrlTuple>> buffers = new ArrayList<>();
+		for (int i = 0; i < NO_OF_BUFFERS; i++) {
+			buffers.add(new ArrayList<UrlTuple>());
+		}
+
+		// Split the doc of url seeds
+		ArrayList<ArrayList<String>> seeds = new ArrayList<>();
+		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
+			seeds.add(new ArrayList<String>());
+		}
+		
+		initializeSeeds(seeds);
+
+		// create adn start the crawlers
 		crawlers = new Thread[NO_OF_CRAWLERS];
 		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i / 2);
@@ -205,37 +183,35 @@ public class WebCrawlerDriver {
 			}
 
 			crawlers[i] = new Thread(
-					new WebCrawler(buffer, taskStack, IUT, db, MAX_CAPACITY, BARRIER));
+					new WebCrawler(buffer, taskStack, IUT, db, MAX_CAPACITY));
 			crawlers[i].start();
 		}
 
-		// create the builders
+		// create and start the builders
 		builders = new Thread[NO_OF_BUILDERS];
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i);
 			builders[i] = new Thread(
-					new IndexBuilder(buffer, IUT, db, MAX_CAPACITY, BARRIER, reswriter));
+					new IndexBuilder(buffer, IUT, db, MAX_CAPACITY, reswriter));
 			builders[i].start();
 
 		}
 		
+		//Waiting for the time to run out. 
 		while(TTL+1000 > System.nanoTime()) {}
 		
+		//If any threads are waiting, interrupt them so they finish
 		try {
 			for(int i = 0; i < crawlers.length; i++) {
 				crawlers[i].interrupt();
-				//crawlers[i].join();
 			}
 			for(int i = 0; i < builders.length; i++) {
 				builders[i].interrupt();
-				//builders[i].join();
 			}
 		} catch (Exception e) {}
 		
 
 		// Print the content of the index to the console
-		// TODO gotta change it to writing to a file
 		System.out.println("Total number of URLs: " + IndexBuilder.htmlDocId.toString());
-		//System.out.println(getResultString(index.getResult()));
 	}
 }

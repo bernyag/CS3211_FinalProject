@@ -27,31 +27,27 @@ import driver.WebCrawlerDriver;
  *
  */
 public class WebCrawler implements Runnable {
+	
 	// BUL shared between two crawling threads and one index building thread
-	private final List<UrlTuple> urlBuffer;
+	private final List<UrlTuple> URL_BUFFER;
 
-	// capacity of the above list
+	// capacity of the BUL
 	private final int MAX_CAPACITY;
 
 	// stack storing URLs for this crawling thread to use
-	private volatile Stack<String> TASK_STACK;
-
-	// barrier to wait for the threads
-	private final CyclicBarrier BARRIER;
+	private volatile Stack<UrlTuple> TASK_STACK;
 	
-	public static HashSet<String> seenurls = new HashSet<>();
-	
+	// Indexed url tree
 	private NavigableSet<String> IUT;
+	
+	//Database for indexed url tree
 	private DB DB;
 
-	BufferedReader br;
-
-	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<String> taskQueue, 
-			NavigableSet<String> IUT, DB db, final int size, CyclicBarrier barrier) {
-		this.urlBuffer = sharedQueue;
+	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<UrlTuple> taskQueue, 
+			NavigableSet<String> IUT, DB db, final int size) {
+		this.URL_BUFFER = sharedQueue;
 		this.TASK_STACK = taskQueue;
 		this.MAX_CAPACITY = size;
-		this.BARRIER = barrier;
 		this.DB = db;
 		this.IUT = IUT;
 	}
@@ -66,23 +62,17 @@ public class WebCrawler implements Runnable {
 	public void run() {
 		while (WebCrawlerDriver.TTL > System.nanoTime()) {
 			try {
-				System.out.println("SIZE OF STACK: -----> " + TASK_STACK.size());
 				if (!TASK_STACK.isEmpty()) {
-					// get a URL to work with
-					String nextURL = TASK_STACK.pop();
-					System.out.println(TASK_STACK.size());
-					ArrayList<String> urlsFound = jsoupExtractHtmlAndLinks(nextURL);
-					if (urlsFound == null)
-						continue;
-
-					String html = urlsFound.remove(urlsFound.size()-1);
-		
-					// create a tuple to put in the BUL
-					UrlTuple pair = new UrlTuple(nextURL, html, urlsFound);
 					
-					System.out.println("After jsoup size: " + urlsFound.size());
-					// put the object into the BUL
-					produce(pair);
+					UrlTuple currentURL = TASK_STACK.pop();
+
+					extractHtmlAndLinks(currentURL);
+					
+					if(currentURL == null) {
+						continue; //necessary??
+					}
+					
+					produce(currentURL);
 				} else {
 					System.out.println(Thread.currentThread().getName() + " has nothing to do!");
 				}
@@ -90,6 +80,8 @@ public class WebCrawler implements Runnable {
 				ex.printStackTrace();
 			}
 		}
+		
+		DB.commit();
 		System.out.println("Thread finished!!!!!: " + Thread.currentThread().getName());
 	}
 
@@ -101,25 +93,26 @@ public class WebCrawler implements Runnable {
 	 * @param url
 	 * @return
 	 */
-	private ArrayList<String> jsoupExtractHtmlAndLinks(final String urlstring) {
+	private void extractHtmlAndLinks( UrlTuple url) {
 		// try to fetch the document
 		Document doc = null;
+		
 		try {			
-			doc = Jsoup.connect(urlstring).get();
+			doc = Jsoup.connect(url.getURL()).get();
 		} catch (IOException e) {
-			return null;
+			url.setDead();
+			return;
 		}
 		
-		// parse HTML into a string
-		String html = doc.toString();
+		//set the HTML as part of the object
+		url.setHTML(doc.toString());
 
-		// get the links from the website
+		// get the links from the document
 		Elements links = doc.select("a[href]");
 		
 		
 		HashSet<String> currentset = new HashSet<>();
 
-		// push these links onto the crawlers associated stack 
 		for (Element link : links) {
 			currentset.add(link.attr("abs:href").toString());
 		}
@@ -128,18 +121,14 @@ public class WebCrawler implements Runnable {
 		
 		ret.addAll(currentset);
 		
-		//seenurls.add(urlstring);
+		url.setChildren(ret);
 		
+		//For each found URL we put s in the stack if it's not in IUT already.
 		for(String s : ret) {
 			if(!IUT.contains(s)) {
-				TASK_STACK.add(s);
+				TASK_STACK.add(new UrlTuple(url.getURL(), s));
 			}
 		}
-		
-		ret.add(html);
-		
-		// return string representation of html
-		return ret;
 	}
 	
 
@@ -147,25 +136,21 @@ public class WebCrawler implements Runnable {
 	 * Puts the webpage-tuple into the buffer. If the buffer is full the tread will
 	 * have to wait until it's empty.
 	 * 
-	 * @param pair
+	 * @param urlTuple
 	 * @throws InterruptedException
 	 */
-	private void produce(final UrlTuple pair) throws InterruptedException {
-		synchronized (urlBuffer) {
-			// check the blocking condition
-			while (urlBuffer.size() == MAX_CAPACITY) {
-				System.out.println("Before wait thread: " + Thread.currentThread().getName());
-				urlBuffer.wait();
-				System.out.println("After wait thread: " + Thread.currentThread().getName());
+	private void produce(final UrlTuple urlTuple) throws InterruptedException {
+		synchronized (URL_BUFFER) {
+
+			while (URL_BUFFER.size() == MAX_CAPACITY) {
+				URL_BUFFER.wait();
 			}
+
+			URL_BUFFER.add(urlTuple);
 			
-			System.out.println("urlbuf size " + urlBuffer.size());
-
-			urlBuffer.add(pair);
-
 			System.out.println("Produced a url-html pair by thread " + Thread.currentThread().getName());
-
-			urlBuffer.notifyAll();
+			
+			URL_BUFFER.notifyAll();
 
 		}
 	}
