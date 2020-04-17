@@ -36,7 +36,7 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUILDERS = 3;
 
 	// timeout in nanoseconds
-	private static int MAX_TIMEOUT = 60;
+	private static int MAX_TIMEOUT = 300;
 
 	// barrier to wait for all the threads
 	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
@@ -141,9 +141,7 @@ public class WebCrawlerDriver {
 		
 		FileUtils.deleteDirectory(new File("./htmls"));
 		new File("./htmls").mkdirs();
-		
-		FileWriter reswriter = new FileWriter("res", true);
-		
+
 		
 		try {
 			FileUtils.forceDelete(new File("./IUTDB"));
@@ -151,6 +149,10 @@ public class WebCrawlerDriver {
 		}catch(Exception e) {
 			
 		}
+		
+		
+		FileWriter reswriter = new FileWriter("res", true);
+		
 
 		
 		DB db = DBMaker.fileDB("IUTDB").make();
