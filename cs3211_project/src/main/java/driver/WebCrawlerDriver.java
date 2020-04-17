@@ -43,7 +43,7 @@ public class WebCrawlerDriver {
 	
 	
 	/**
-	 * This method checks if the arguments provided to the program are valid.
+	 * This method checks if the arguments provided to the program are valid, and parses them.
 	 */
 	private static boolean checkArguments(String[] args) {
 		
@@ -57,11 +57,16 @@ public class WebCrawlerDriver {
 			    if (i+1 < args.length) {
 			    	beenChecker[i/2] = true;
 			    	
-			    	if(argument.length() < 2)
-			    		return false;
+			    	String timeString = args[++i];
 			    	
-			    	argument = argument.substring(0, argument.length() - 1);
-			    	TTL = System.nanoTime() + TimeUnit.MINUTES.toNanos(Integer.parseInt(args[++i]));
+			    	char lastchar = timeString.charAt(timeString.length()-1);
+			    	int time = Integer.parseInt(timeString.substring(0, timeString.length() - 1));
+			    	
+			    	if(lastchar == 'h') {
+				    	TTL = System.nanoTime() + TimeUnit.HOURS.toNanos(time);
+			    	}else {
+			        	TTL = System.nanoTime() + TimeUnit.MINUTES.toNanos(time);
+			    	}
 			    	continue;
 			    }
 			    else {
