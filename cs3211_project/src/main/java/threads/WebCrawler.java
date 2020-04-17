@@ -42,6 +42,8 @@ public class WebCrawler implements Runnable {
 	
 	//Database for indexed url tree
 	private DB DB;
+	
+	static HashSet<String> recenturls;
 
 	public WebCrawler(final List<UrlTuple> sharedQueue, final Stack<UrlTuple> taskQueue, 
 			NavigableSet<String> IUT, DB db, final int size) {
@@ -50,6 +52,7 @@ public class WebCrawler implements Runnable {
 		this.MAX_CAPACITY = size;
 		this.DB = db;
 		this.IUT = IUT;
+		recenturls = new HashSet<>();
 	}
 
 	/**
@@ -121,14 +124,22 @@ public class WebCrawler implements Runnable {
 		
 		ret.addAll(currentset);
 		
+		System.out.println("CURRENTSET SIZE VS RET SIZE " + currentset.size() + " - " + links.size());
+		
 		url.setChildren(ret);
 		
 		//For each found URL we put s in the stack if it's not in IUT already.
 		for(String s : ret) {
-			if(!IUT.contains(s)) {
+			if(!IUT.contains(s) && !recenturls.contains(s)) {
 				TASK_STACK.add(new UrlTuple(url.getURL(), s));
+				recenturls.add(s);
 			}
 		}
+		
+		if(recenturls.size() > 10000) {
+			recenturls.clear();
+		}
+		
 	}
 	
 

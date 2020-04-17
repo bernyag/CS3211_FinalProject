@@ -225,6 +225,6 @@ public class WebCrawlerDriver {
 		
 
 		// Print the content of the index to the console
-		System.out.println("Total number of URLs: " + IndexBuilder.htmlDocId.toString());
+		System.out.println("Total number of URLs: " + IndexBuilder.totalScraped.toString());
 	}
 }

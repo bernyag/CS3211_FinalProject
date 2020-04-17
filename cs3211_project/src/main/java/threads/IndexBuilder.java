@@ -34,6 +34,9 @@ public class IndexBuilder implements Runnable {
 	//Sets the document ID for the htmls documents being saved, but also counts the amount of files crawled
 	public static Integer htmlDocId = 0;
 	
+	//Total amount of scraped urls
+	public static Integer totalScraped = 0;
+	
 	//Writer to write the result file
 	private FileWriter reswriter;
 	
@@ -70,8 +73,8 @@ public class IndexBuilder implements Runnable {
 	 * This method writes the results to files.
 	 */
 	public void writeURL(UrlTuple ut){
+		
 		try {	
-			
 			if(ut.dead()) {
 				reswriter.write( ut.getURL() + " ---> " + ut.getParent() + " : *dead-url* \n");
 			} else if(htmlDocId > 1000) {
@@ -84,12 +87,8 @@ public class IndexBuilder implements Runnable {
 				htmlw.close();
 				htmlDocId++;
 			}
-			
-
-			
-			
-	
 		} catch (Exception e) {}
+		totalScraped++;
 	}
 
 	/**
