@@ -36,7 +36,7 @@ public class WebCrawlerDriver {
 	private static final int NO_OF_BUILDERS = 3;
 
 	// timeout in nanoseconds
-	private static final long MAX_TIMEOUT = 300;
+	private static int MAX_TIMEOUT = 60;
 
 	// barrier to wait for all the threads
 	private static CyclicBarrier BARRIER = new CyclicBarrier(NO_OF_CRAWLERS + NO_OF_BUILDERS);
@@ -44,6 +44,8 @@ public class WebCrawlerDriver {
 	private static Thread[] crawlers;
 	private static Thread[] builders;
 	public static long TTL;
+	public static String inputfile;
+	public static String outputfile;
 
 
 	private static String getResultString(Map<String, List<String>> indexContent) {
@@ -74,17 +76,78 @@ public class WebCrawlerDriver {
 		}
 		return false;
 	}
+	
+	private static boolean checkArguments(String[] args) {
+		
+		//java cawler.jar -time 24h -input seed.txt -output res.txt -storedPageNum 1000
+		
+		for(int i = 0; i < args.length; i++) {
+			
+			String argument = args[i];
+			
+			if (argument.equals("-time")) {
+			    if (i+1 < args.length) {
+			    	MAX_TIMEOUT = Integer.parseInt(args[i++]);
+			    	continue;
+			    }
+			    else {
+			    	System.err.println("-time requires a number");			    	
+			    }
+			}
+			
+			if (argument.equals("-input")) {
+			    if (i+1 < args.length) {
+			        outputfile = args[i++];
+			        continue;
+			    }
+			    else {
+			    	System.err.println("-inputrequires a filename");			    	
+			    }
+			}
+			
+			if (argument.equals("-output")) {
+			    if (i+1 < args.length) {
+			        outputfile = args[i++];
+					continue;
+			    }
+			    else {
+			    	System.err.println("-output requires a filename");			    	
+			    }
+			}
+			
+			if (argument.equals("-storedPageNum")) {
+			    if (i+1 < args.length) {
+			        outputfile = args[i++];
+			        continue;
+			    }
+			    else {
+			    	System.err.println("-storedPageNum requires a number");			    	
+			    }
+			}
+			return false;
+		}
+		
+		
+		return true;
+	}
+	
+	
 
 	public static void main(String[] args) throws IOException {
 		
-		FileUtils.deleteDirectory(new File("./indexfiles"));
+		/*if(!checkArguments(args)) {
+			System.err.println("Usage: java cawler.jar -time 24h -input seed.txt -output res.txt -storedPageNum 1000");	
+		}*/
+		
 		FileUtils.deleteDirectory(new File("./htmls"));
+		new File("./htmls").mkdirs();
 		
 		FileWriter reswriter = new FileWriter("res", true);
 		
 		
 		try {
 			FileUtils.forceDelete(new File("./IUTDB"));
+			FileUtils.forceDelete(new File("./res"));
 		}catch(Exception e) {
 			
 		}
@@ -92,10 +155,6 @@ public class WebCrawlerDriver {
 		
 		DB db = DBMaker.fileDB("IUTDB").make();
 		NavigableSet<String> IUT = db.treeSet("example").serializer(Serializer.STRING).createOrOpen();
-		
-		// IUT data structure
-		UrlTree index = new UrlTree();
-		UrlTree tre = index;
 		
 
 		// create the buffers
@@ -137,10 +196,10 @@ public class WebCrawlerDriver {
 		crawlers = new Thread[NO_OF_CRAWLERS];
 		for (int i = 0; i < NO_OF_CRAWLERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i / 2);
-			Stack<String> taskStack = new Stack<>();
+			Stack<UrlTuple> taskStack = new Stack<>();
 			ArrayList<String> intialURLs = seeds.get(i);
 			for (int j = 0; j < intialURLs.size(); j++) {
-				taskStack.add(intialURLs.get(j));
+				taskStack.add(new UrlTuple("root", intialURLs.get(j)));
 			}
 
 			crawlers[i] = new Thread(
@@ -153,7 +212,7 @@ public class WebCrawlerDriver {
 		for (int i = 0; i < NO_OF_BUILDERS; i++) {
 			ArrayList<UrlTuple> buffer = buffers.get(i);
 			builders[i] = new Thread(
-					new IndexBuilder(buffer, index, IUT, db, MAX_CAPACITY, BARRIER, reswriter));
+					new IndexBuilder(buffer, IUT, db, MAX_CAPACITY, BARRIER, reswriter));
 			builders[i].start();
 
 		}
