@@ -13,27 +13,46 @@ import java.util.HashSet;
  *
  */
 public class UrlTuple{
+	private String parent;
     private String URL;
     private String HTML;
-    private ArrayList<String> foundUrls;
+    private ArrayList<String> children;
+    private boolean dead = false;
 
-    private HashSet<String> foundURLs = new HashSet<>();
-
-    public UrlTuple(String URL, String HTML, ArrayList<String> foundUrls){
+    public UrlTuple(String parent, String URL){
+    	this.parent = parent;
         this.URL = URL;
-        this.HTML = HTML;
-        this.foundUrls = foundUrls; 
+    }
+    
+    public String getParent(){
+        return parent;
     }
 
     public String getURL(){
         return URL;
     }
 
-    public String GetHTML(){
+    public String getHTML(){
         return HTML;
     }
     
-    public ArrayList<String> getFoundUrls(){
-    	return foundUrls;
+    public void setHTML(String html){
+        HTML = html;
+    }
+    
+    public ArrayList<String> getChildren(){
+    	return children;
+    }
+    
+    public void setChildren(ArrayList<String> c){
+    	children = c;
+    }
+    
+    public void setDead(){
+    	dead = true;
+    }
+    
+    public boolean dead(){
+    	return dead;
     }
 }

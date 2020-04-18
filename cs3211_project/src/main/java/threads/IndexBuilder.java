@@ -3,10 +3,9 @@ package threads;
 import entity.*;
 import driver.WebCrawlerDriver;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.util.*;
-import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
 
 import org.mapdb.DB;
 
@@ -18,21 +17,36 @@ import org.mapdb.DB;
  * @since 2020-03-18
  */
 public class IndexBuilder implements Runnable {
+	
+	// BUL shared between two crawling threads and one index building thread
 	private final List<UrlTuple> URL_BUFFER;
+	
+	// Capacity of the BUL
 	private final int MAX_CAPACITY;
-	private final UrlTree URL_INDEX;
-	private final CyclicBarrier BARRIER;
+	
+	
+	// Indexed url tree
 	private NavigableSet<String> IUT;
+	
+	//Database for indexed url tree
 	private DB DB;
+	
+	//Sets the document ID for the htmls documents being saved, but also counts the amount of files crawled
 	public static Integer htmlDocId = 0;
+	
+	//Total amount of scraped urls
+	public static Integer totalScraped = 0;
+	
+	//Writer to write the result file
 	private FileWriter reswriter;
+	
+	//Counts inputs to the database so we can commit at a reasonable time.
+	private static int inputsCounter = 0;
 
-	public IndexBuilder(List<UrlTuple> sharedQueue, UrlTree urlIndex, NavigableSet<String> IUT, 
-			DB db, int max_capacity, CyclicBarrier barrier, FileWriter fw) {
-		this.URL_INDEX = urlIndex;
+	public IndexBuilder(List<UrlTuple> sharedQueue, NavigableSet<String> IUT, 
+			DB db, int max_capacity, FileWriter fw) {
 		this.URL_BUFFER = sharedQueue;
 		this.MAX_CAPACITY = max_capacity;
-		this.BARRIER = barrier;
 		this.DB = db;
 		this.IUT = IUT;
 		this.reswriter = fw;
@@ -52,68 +66,65 @@ public class IndexBuilder implements Runnable {
 			}
 		}
 		System.out.println("Thread finished!!!!!: " + Thread.currentThread().getName());
+		DB.commit();
 	}
 	
-	
-	public void addURL(UrlTuple ut){
-		String url = ut.getURL();
-		String strippedUrl = url.replace("http://","").replace("https://","").replace("www.","");
-		System.out.println(strippedUrl);
-
-		try {
-			for(String s : ut.getFoundUrls()) {
-				reswriter.write(url + " ---> " + s + "\n");
+	/**
+	 * This method writes the results to files.
+	 */
+	public void writeURL(UrlTuple ut){
+		
+		try {	
+			if(ut.dead()) {
+				reswriter.write( ut.getURL() + " ---> " + ut.getParent() + " : *dead-url* \n");
+			} else if(htmlDocId > 1000) {
+				reswriter.write(ut.getURL() + " ---> " + ut.getParent() + " : *ignored* \n");
+			} else {
+				String fileloc = "./htmls/" + htmlDocId.toString() + ".html";
+				FileWriter htmlw = new FileWriter(fileloc);
+				htmlw.write(ut.getHTML());
+				reswriter.write( ut.getURL() + " ---> " + ut.getParent() + " : " + new File(fileloc).getAbsolutePath() + "\n");
+				htmlw.close();
+				htmlDocId++;
 			}
-			
-			FileWriter fw = new FileWriter("./indexfiles/" + strippedUrl.charAt(0) + "\n", true);
-			FileWriter htmlw = new FileWriter("./htmls/" + htmlDocId.toString() + "\n");
-			fw.write(url + " ---> " + " " + htmlDocId.toString() + "\n");
-			htmlw.write(ut.GetHTML());
-			htmlDocId++;
-			
-			htmlw.close();
-			fw.close();
-			
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		} catch (Exception e) {}
+		totalScraped++;
 	}
 
 	/**
 	 * This method tries to consume a pair from the associated buffer (by consume we
 	 * mean pop it off the stack and place it in the URLIndexTree). The method is
 	 * synchronized in order to avoid multi thread access to the shared buffer
-	 * 
-	 * @question Why do we have 2 blocks both outputting empty? Can't these be
-	 *           merged
 	 */
 	private void consume() throws InterruptedException {
 		synchronized (URL_BUFFER) {		
-			System.out.println("Before await thread: " + Thread.currentThread().getName());
+			
+			//Wait for BUL to be full
 			while (URL_BUFFER.size() != MAX_CAPACITY && WebCrawlerDriver.TTL > System.nanoTime()) {
 				System.out.println("Queue is empty " + Thread.currentThread().getName() + " is waiting , size: "
 						+ URL_BUFFER.size());
-				System.out.println("Before await " + Thread.currentThread().getName());
 				try{
 					URL_BUFFER.wait();
-				} catch(InterruptedException e) {
-					
-				}
-		
+				} catch(InterruptedException e) {}
 			}
-			System.out.println("Before copy " + Thread.currentThread().getName());
+			
+			//copy and clear buffer
 			ArrayList<UrlTuple> copy = new ArrayList<>();
 			copy.addAll(URL_BUFFER);
 			URL_BUFFER.clear();
 			
+			//Write the urls to files
 			for(UrlTuple ut : copy){
-				addURL(ut);
+				writeURL(ut);
 				IUT.add(ut.getURL());
-				
+				inputsCounter++;
 			}
-
-			System.out.println("before nano " + Thread.currentThread().getName());
-
+			
+			//After 100000 url's we commit to DB to not exceed the memory limit
+			if(inputsCounter > 100000) {
+				DB.commit();
+				inputsCounter = 0;
+			}
 
 			URL_BUFFER.notifyAll();
 		}
