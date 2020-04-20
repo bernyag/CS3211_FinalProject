@@ -1,0 +1,36 @@
+﻿#import "PAT.Lib.CS3211"; // Remember to also build the TLL file after you edit the library
+#import "PAT.Lib.NiklasQueue";
+#import "PAT.Lib.NiklasTree";
+#import "PAT.Lib.NiklasBuffers";
+
+#define seed  1;
+#define num_bul  3;
+#define num_url  8;
+#define buffer_size 4;
+
+var<NiklasTree> IUT = new NiklasTree();
+var<Queue> URLQueue = new Queue(num_url, seed);
+var<NiklasBuffers> Buffers = new NiklasBuffers(num_bul, buffer_size);
+
+
+CT(i) 	=	[Buffers.isFull(i)==false && Buffers.isLocked(i)==false && URLQueue.isEmpty()==false] fill{Buffers.fill(i,URLQueue.useFirst())} ->CT(i) [] 
+			[Buffers.isEmpty(i)==false && IUT.isLocked()==false && (Buffers.isFull(i)==true || URLQueue.isEmpty()==true)] lock{IUT.doLock(); Buffers.setLocked(i,true)} -> CT(i) []¨//writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> 
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==false] writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> CT(i) []
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==true] unlock{Buffers.setLocked(i,false); IUT.doUnlock()} -> CT(i);
+			
+CheckDuplicates() = [IUT.hasDuplicates()] error -> Skip []
+					[!IUT.hasDuplicates()] no_duplicates -> Skip;
+	
+URLTree()  = 	[!(URLQueue.Count()==0 && Buffers.isEmptied()==true)] writeTree -> URLTree() []
+				[URLQueue.isEmpty()==true && Buffers.isEmptied()==true && Buffers.areUnlocked()==true] CheckDuplicates(); 
+				
+
+
+
+Run() = URLTree() || (|||x:{0..num_bul-1} @ CT(x)) \ {doneWrite};
+
+
+//=========================== ASSERTIONS ================================
+#assert Run() |= []!<>error;	// The error state only occurs if we have duplicates in the IUT
+#assert Run() |= []<>no_duplicates; // The no_duplicates state can only be reached if we don't have deadlocks (since it reuqires everything to be emptied)
+
