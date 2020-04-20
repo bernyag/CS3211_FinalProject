@@ -1,36 +1,58 @@
-﻿#import "PAT.Lib.CS3211"; // Remember to also build the TLL file after you edit the library
+#import "PAT.Lib.CS3211"; // Remember to also build the TLL file after you edit the library
 #import "PAT.Lib.NiklasQueue";
 #import "PAT.Lib.NiklasTree";
 #import "PAT.Lib.NiklasBuffers";
 
 #define seed  1;
 #define num_bul  3;
-#define num_url  8;
-#define buffer_size 4;
+#define num_url  4;
+#define buffer_size 2;
 
 var<NiklasTree> IUT = new NiklasTree();
 var<Queue> URLQueue = new Queue(num_url, seed);
 var<NiklasBuffers> Buffers = new NiklasBuffers(num_bul, buffer_size);
 
+//=========================== Syncronous Model ================================
+BUL_sync(i) 	=	[Buffers.isFull(i)==false && Buffers.isLocked(i)==false && URLQueue.isEmpty()==false] fill{Buffers.fill(i,URLQueue.useFirst())} ->BUL_sync(i) [] 
+			[Buffers.isEmpty(i)==false && IUT.isLocked()==false && (Buffers.isFull(i)==true || URLQueue.isEmpty()==true)] lock{IUT.doLock(); Buffers.setLocked(i,true)} -> BUL_sync(i) []¨//writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> 
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==false] DuplicateCheck_sync(i) []
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==true] unlock{Buffers.setLocked(i,false); IUT.doUnlock()} -> BUL_sync(i);
 
-CT(i) 	=	[Buffers.isFull(i)==false && Buffers.isLocked(i)==false && URLQueue.isEmpty()==false] fill{Buffers.fill(i,URLQueue.useFirst())} ->CT(i) [] 
-			[Buffers.isEmpty(i)==false && IUT.isLocked()==false && (Buffers.isFull(i)==true || URLQueue.isEmpty()==true)] lock{IUT.doLock(); Buffers.setLocked(i,true)} -> CT(i) []¨//writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> 
-			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==false] writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> CT(i) []
-			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==true] unlock{Buffers.setLocked(i,false); IUT.doUnlock()} -> CT(i);
+DuplicateCheck_sync(i) = 	[IUT.Contains(Buffers.getFirst(i))==false] checkDuplicate -> write{IUT.Write(Buffers.useFirst(i))} -> donewriteOrDiscard -> BUL_sync(i) []
+						[IUT.Contains(Buffers.getFirst(i))==true] checkDuplicate -> discard{Buffers.useFirst(i)} -> donewriteOrDiscard -> BUL_sync(i);
 			
-CheckDuplicates() = [IUT.hasDuplicates()] error -> Skip []
+FinalCheck_sync() = 		[IUT.hasDuplicates()] error -> Skip []
 					[!IUT.hasDuplicates()] no_duplicates -> Skip;
 	
-URLTree()  = 	[!(URLQueue.Count()==0 && Buffers.isEmptied()==true)] writeTree -> URLTree() []
-				[URLQueue.isEmpty()==true && Buffers.isEmptied()==true && Buffers.areUnlocked()==true] CheckDuplicates(); 
+URLTree_sync()  = 	[!(URLQueue.Count()==0 && Buffers.isEmptied()==true)] checkDuplicate -> donewriteOrDiscard -> URLTree_sync() []
+				[URLQueue.isEmpty()==true && Buffers.isEmptied()==true && Buffers.areUnlocked()==true] FinalCheck_sync(); 
 				
 
+//=========================== Asyncronous Model ================================
+BUL_async(i) 	=	[Buffers.isFull(i)==false && Buffers.isLocked(i)==false && URLQueue.isEmpty()==false] fill{Buffers.fill(i,URLQueue.useFirst())} ->BUL_async(i) [] 
+			[Buffers.isEmpty(i)==false && Buffers.isLocked(i)==false && (Buffers.isFull(i)==true || URLQueue.isEmpty()==true)] lock{Buffers.setLocked(i,true)} -> BUL_async(i) []¨//writeTree -> doneWrite{IUT.Write(Buffers.useFirst(i))} -> 
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==false] DuplicateCheck_async(i) []
+			[Buffers.isLocked(i)==true && Buffers.isEmpty(i)==true] unlock{Buffers.setLocked(i,false)} -> BUL_async(i);
 
+DuplicateCheck_async(i) = 	[IUT.Contains(Buffers.getFirst(i))==false] checkDuplicate -> write{IUT.Write(Buffers.useFirst(i))} -> donewriteOrDiscard -> BUL_async(i) []
+						[IUT.Contains(Buffers.getFirst(i))==true] checkDuplicate -> discard{Buffers.useFirst(i)} -> donewriteOrDiscard -> BUL_async(i);
+			
+FinalCheck_async() = 		[IUT.hasDuplicates()] error -> Skip []
+					[!IUT.hasDuplicates()] no_duplicates -> Skip;
+	
+URLTree_async()  =	[URLQueue.isEmpty()==true && Buffers.isEmptied()==true && Buffers.areUnlocked()==true] FinalCheck_async(); 
+				
 
-Run() = URLTree() || (|||x:{0..num_bul-1} @ CT(x)) \ {doneWrite};
+//=========================== Run Models ================================
+Run_sync() = URLTree_sync() || (|||x:{0..num_bul-1} @ BUL_sync(x)) \ {doneWrite};
+Run_async() =  URLTree_async() ||| (|||x:{0..num_bul-1} @ BUL_async(x)) \ {doneWrite};
 
 
 //=========================== ASSERTIONS ================================
-#assert Run() |= []!<>error;	// The error state only occurs if we have duplicates in the IUT
-#assert Run() |= []<>no_duplicates; // The no_duplicates state can only be reached if we don't have deadlocks (since it reuqires everything to be emptied)
+#assert Run_async() |= []!<>error;	// The error state only occurs if we have duplicates in the IUT
+#assert Run_async() |= []<>no_duplicates; // The no_duplicates state can only be reached if we don't have deadlocks (since it reuqires everything to be emptied)
+#assert Run_async() deadlockfree;
 
+#assert Run_sync() |= []!<>error;	// The error state only occurs if we have duplicates in the IUT
+#assert Run_sync() |= []<>no_duplicates; // The no_duplicates state can only be reached if we don't have deadlocks (since it reuqires everything to be emptied)
+#assert Run_sync() deadlockfree;
